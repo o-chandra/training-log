@@ -1,35 +1,36 @@
 const STORAGE_KEY = 'training-log-v1';
+
+// Grade catalog used to populate dropdowns and group pitch counts.
+// No points/weighting anymore -- this is purely a list of selectable grades per category+venue.
 const CLIMB_GRADES = [
-  {k:'Indoor v0-v2',pts:0.2,cat:'boulder',venue:'indoor'},
-  {k:'Indoor v3-v4',pts:0.4,cat:'boulder',venue:'indoor'},
-  {k:'Indoor v5-v6',pts:0.8,cat:'boulder',venue:'indoor'},
-  {k:'Indoor >=v7',pts:1.4,cat:'boulder',venue:'indoor'},
-  {k:'Indoor 5.9',pts:0.25,cat:'sport',venue:'indoor'},
-  {k:'Indoor 5.10',pts:0.5,cat:'sport',venue:'indoor'},
-  {k:'Indoor 5.11',pts:1.0,cat:'sport',venue:'indoor'},
-  {k:'Indoor 5.12',pts:1.5,cat:'sport',venue:'indoor'},
-  {k:'Sport \u22645.9',pts:0.5,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.10a/b',pts:0.75,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.10c/d',pts:1.0,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.11a/b',pts:1.5,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.11c/d',pts:2.0,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.12a/b',pts:3.0,cat:'sport',venue:'outdoor'},
-  {k:'Sport 5.12c/d',pts:4.0,cat:'sport',venue:'outdoor'},
-  {k:'Trad \u22645.6',pts:0.4,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.7-5.8',pts:0.5,cat:'trad',venue:'outdoor'},
-  {k:'Trad \u22645.9',pts:0.75,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.10a/b',pts:1.5,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.10c/d',pts:2.0,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.11a/b',pts:2.5,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.11c/d',pts:3.0,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.12a/b',pts:3.5,cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.12c/d',pts:4.5,cat:'trad',venue:'outdoor'},
-  {k:'Alpine \u22645.6',pts:0.4,cat:'alpine',venue:'outdoor'},
-  {k:'Alpine 5.7-5.9',pts:0.75,cat:'alpine',venue:'outdoor'},
-  {k:'Alpine 5.10+',pts:1.5,cat:'alpine',venue:'outdoor'},
+  {k:'Indoor v0-v2',cat:'boulder',venue:'indoor'},
+  {k:'Indoor v3-v4',cat:'boulder',venue:'indoor'},
+  {k:'Indoor v5-v6',cat:'boulder',venue:'indoor'},
+  {k:'Indoor >=v7',cat:'boulder',venue:'indoor'},
+  {k:'Indoor 5.9',cat:'sport',venue:'indoor'},
+  {k:'Indoor 5.10',cat:'sport',venue:'indoor'},
+  {k:'Indoor 5.11',cat:'sport',venue:'indoor'},
+  {k:'Indoor 5.12',cat:'sport',venue:'indoor'},
+  {k:'Sport \u22645.9',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.10a/b',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.10c/d',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.11a/b',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.11c/d',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.12a/b',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.12c/d',cat:'sport',venue:'outdoor'},
+  {k:'Trad \u22645.6',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.7-5.8',cat:'trad',venue:'outdoor'},
+  {k:'Trad \u22645.9',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.10a/b',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.10c/d',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.11a/b',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.11c/d',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.12a/b',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.12c/d',cat:'trad',venue:'outdoor'},
+  {k:'Alpine \u22645.6',cat:'alpine',venue:'outdoor'},
+  {k:'Alpine 5.7-5.9',cat:'alpine',venue:'outdoor'},
+  {k:'Alpine 5.10+',cat:'alpine',venue:'outdoor'},
 ];
-const TERRAIN_MILE_PTS = {trail:1.0,road:0.5,weighted:1.5,scramble:1.7};
-const TERRAIN_VERT_PTS = {trail:0.002,road:0.002,weighted:0.003,scramble:0.0034};
 
 let state = {days:{}, climbs:[], cardio:[], fuel:[]};
 let currentWeekStart = getMonday(new Date());
@@ -100,6 +101,7 @@ function cellBadges(dateISO) {
 function vibeClass(entry) {
   if(!entry) return '';
   const v=entry.vibe||'';
+  if(v==='great') return 'vibe-great';
   if(v==='good') return 'vibe-good';
   if(v==='medium') return 'vibe-medium';
   if(v==='bad') return 'vibe-bad';
@@ -161,17 +163,21 @@ function renderMonth() {
   renderPeriodStats(monthISOs, 'Month');
 }
 
+/* Count total pitches/problems logged in a climb session */
+function climbPitchCount(c) {
+  return (c.rows||[]).reduce((s,r)=>s+(r.count||0),0);
+}
+
 function renderPeriodStats(isos, label) {
   const pC=state.climbs.filter(c=>isos.includes(c.date));
   const pA=state.cardio.filter(c=>isos.includes(c.date));
-  const cPts=pC.reduce((s,c)=>s+(c.points||0),0);
-  const aPts=pA.reduce((s,c)=>s+(c.points||0),0);
+  const pitches=pC.reduce((s,c)=>s+climbPitchCount(c),0);
   const mi=pA.reduce((s,c)=>s+(parseFloat(c.miles)||0),0);
   const vt=pA.reduce((s,c)=>s+(parseFloat(c.vert)||0),0);
   const sessions=pC.length+pA.length;
   document.getElementById('period-stats').innerHTML=
     '<div class="stat-grid" style="margin-top:0.5rem">'+
-    '<div class="stat-card"><div class="stat-val">'+(cPts+aPts).toFixed(1)+'</div><div class="stat-label">'+label+' points</div></div>'+
+    '<div class="stat-card"><div class="stat-val">'+pitches+'</div><div class="stat-label">'+label+' pitches/problems</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+mi.toFixed(1)+'</div><div class="stat-label">'+label+' miles</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+Math.round(vt).toLocaleString()+'</div><div class="stat-label">'+label+' vert (ft)</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+sessions+'</div><div class="stat-label">'+label+' sessions</div></div></div>';
@@ -185,10 +191,11 @@ function renderClimbs() {
   if(!filtered.length){el.innerHTML='<div class="empty-state">No sessions logged yet</div>';return;}
   el.innerHTML=filtered.map(c=>{
     const rows=(c.rows||[]).map(r=>r.count+'\u00d7 '+r.grade).join(' \u00b7 ');
+    const pitchCount=climbPitchCount(c);
     return '<div class="log-entry" onclick="openClimbModal('+c._i+')">'+
       '<div class="entry-header"><span class="pill pill-'+esc(c.climbType||'climb')+'">'+esc(c.venue||'')+' '+esc(c.climbType||'')+'</span>'+
       '<span class="entry-date">'+fmtDisplay(c.date)+'</span>'+
-      '<span class="entry-pts">'+(c.points||0).toFixed(1)+' pts</span></div>'+
+      (pitchCount?'<span class="entry-pts">'+pitchCount+' pitches</span>':'')+'</div>'+
       '<div class="entry-detail">'+esc(rows)+(c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>';
   }).join('');
 }
@@ -199,8 +206,7 @@ function renderCardio() {
   if(!sorted.length){el.innerHTML='<div class="empty-state">No activities logged yet</div>';return;}
   el.innerHTML=sorted.map(c=>'<div class="log-entry" onclick="openCardioModal('+c._i+')">'+
     '<div class="entry-header"><span class="pill pill-cardio">'+esc(c.actType||'cardio')+'</span>'+
-    '<span class="entry-date">'+fmtDisplay(c.date)+'</span>'+
-    '<span class="entry-pts">'+(c.points||0).toFixed(1)+' pts</span></div>'+
+    '<span class="entry-date">'+fmtDisplay(c.date)+'</span></div>'+
     '<div class="entry-detail">'+(c.objective?'<strong>'+esc(c.objective)+'</strong> \u00b7 ':'')+
     (c.miles?c.miles+' mi':'')+(c.vert?' \u00b7 '+Number(c.vert).toLocaleString()+' ft vert':'')+(c.time?' \u00b7 '+c.time+' hrs':'')+
     (c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>').join('');
@@ -217,13 +223,38 @@ function renderFuel() {
     '<div class="fuel-body">'+esc([f.food&&('Food: '+f.food),f.gear&&('Gear: '+f.gear),f.notes&&('Notes: '+f.notes)].filter(Boolean).join('\n\n'))+'</div></div>').join('');
 }
 
+/* ===================== STATS / PITCH BREAKDOWN ===================== */
+
+// Current filter state for the pitch-count breakdown on the Stats tab
+let statsFilter = { range: 'all', venue: 'all', type: 'all' };
+
+function statsFilteredClimbs() {
+  const now = new Date();
+  let cutoff = null;
+  if (statsFilter.range === '30d') cutoff = addDays(now, -30);
+  else if (statsFilter.range === '90d') cutoff = addDays(now, -90);
+  else if (statsFilter.range === 'ytd') cutoff = new Date(now.getFullYear(), 0, 1);
+  const cutoffISO = cutoff ? fmtISO(cutoff) : null;
+
+  return state.climbs.filter(c => {
+    if (cutoffISO && c.date < cutoffISO) return false;
+    if (statsFilter.venue !== 'all' && c.venue !== statsFilter.venue) return false;
+    if (statsFilter.type !== 'all' && c.climbType !== statsFilter.type) return false;
+    return true;
+  });
+}
+
+function setStatsFilter(field, value) {
+  statsFilter[field] = value;
+  renderStats();
+}
+
 function renderStats() {
-  const climbPts=state.climbs.reduce((s,c)=>s+(c.points||0),0);
-  const cardioPts=state.cardio.reduce((s,c)=>s+(c.points||0),0);
   const totalMi=state.cardio.reduce((s,c)=>s+(parseFloat(c.miles)||0),0);
   const totalVert=state.cardio.reduce((s,c)=>s+(parseFloat(c.vert)||0),0);
+  const totalPitches=state.climbs.reduce((s,c)=>s+climbPitchCount(c),0);
   document.getElementById('stat-grid').innerHTML=
-    '<div class="stat-card"><div class="stat-val">'+(climbPts+cardioPts).toFixed(0)+'</div><div class="stat-label">Total points</div></div>'+
+    '<div class="stat-card"><div class="stat-val">'+totalPitches+'</div><div class="stat-label">Total pitches/problems</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+totalMi.toFixed(0)+'</div><div class="stat-label">Total miles</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+Math.round(totalVert).toLocaleString()+'</div><div class="stat-label">Total vert (ft)</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+(state.climbs.length+state.cardio.length)+'</div><div class="stat-label">Sessions</div></div>';
@@ -231,10 +262,72 @@ function renderStats() {
   const inC=state.climbs.filter(c=>c.venue==='indoor').length;
   document.getElementById('stats-breakdown').innerHTML=
     '<div class="stat-grid">'+
-    '<div class="stat-card"><div class="stat-val">'+climbPts.toFixed(1)+'</div><div class="stat-label">Climbing pts</div></div>'+
-    '<div class="stat-card"><div class="stat-val">'+cardioPts.toFixed(1)+'</div><div class="stat-label">Cardio pts</div></div>'+
     '<div class="stat-card"><div class="stat-val">'+outC+'</div><div class="stat-label">Outdoor sessions</div></div>'+
-    '<div class="stat-card"><div class="stat-val">'+inC+'</div><div class="stat-label">Indoor sessions</div></div></div>';
+    '<div class="stat-card"><div class="stat-val">'+inC+'</div><div class="stat-label">Indoor sessions</div></div>'+
+    '<div class="stat-card"><div class="stat-val">'+state.climbs.length+'</div><div class="stat-label">Climb sessions</div></div>'+
+    '<div class="stat-card"><div class="stat-val">'+state.cardio.length+'</div><div class="stat-label">Cardio sessions</div></div></div>';
+
+  renderPitchBreakdown();
+}
+
+function renderPitchBreakdown() {
+  const climbs = statsFilteredClimbs();
+
+  // Tally counts per grade label
+  const tally = {}; // grade -> {count, cat, venue}
+  climbs.forEach(c => {
+    (c.rows||[]).forEach(r => {
+      if (!r.grade || !r.count) return;
+      if (!tally[r.grade]) tally[r.grade] = { count: 0, cat: c.climbType, venue: c.venue };
+      tally[r.grade].count += r.count;
+    });
+  });
+
+  const entries = Object.entries(tally).sort((a,b) => b[1].count - a[1].count);
+  const totalForFilter = entries.reduce((s,[,v])=>s+v.count, 0);
+
+  const filterRow =
+    '<div class="filter-row" style="margin-top:1.5rem">'+
+    '<select id="stats-range-filter" onchange="setStatsFilter(\'range\',this.value)" style="font-size:13px;padding:5px 10px;width:auto">'+
+      '<option value="all"'+(statsFilter.range==='all'?' selected':'')+'>All time</option>'+
+      '<option value="ytd"'+(statsFilter.range==='ytd'?' selected':'')+'>This year</option>'+
+      '<option value="90d"'+(statsFilter.range==='90d'?' selected':'')+'>Last 90 days</option>'+
+      '<option value="30d"'+(statsFilter.range==='30d'?' selected':'')+'>Last 30 days</option>'+
+    '</select>'+
+    '<select id="stats-venue-filter" onchange="setStatsFilter(\'venue\',this.value)" style="font-size:13px;padding:5px 10px;width:auto">'+
+      '<option value="all"'+(statsFilter.venue==='all'?' selected':'')+'>Indoor + outdoor</option>'+
+      '<option value="indoor"'+(statsFilter.venue==='indoor'?' selected':'')+'>Indoor</option>'+
+      '<option value="outdoor"'+(statsFilter.venue==='outdoor'?' selected':'')+'>Outdoor</option>'+
+    '</select>'+
+    '<select id="stats-type-filter" onchange="setStatsFilter(\'type\',this.value)" style="font-size:13px;padding:5px 10px;width:auto">'+
+      '<option value="all"'+(statsFilter.type==='all'?' selected':'')+'>All types</option>'+
+      '<option value="boulder"'+(statsFilter.type==='boulder'?' selected':'')+'>Boulder</option>'+
+      '<option value="sport"'+(statsFilter.type==='sport'?' selected':'')+'>Sport</option>'+
+      '<option value="trad"'+(statsFilter.type==='trad'?' selected':'')+'>Trad</option>'+
+      '<option value="alpine"'+(statsFilter.type==='alpine'?' selected':'')+'>Alpine</option>'+
+    '</select>'+
+    '</div>';
+
+  let bodyHtml;
+  if (!entries.length) {
+    bodyHtml = '<div class="empty-state">No pitches/problems match this filter</div>';
+  } else {
+    const maxCount = entries[0][1].count;
+    bodyHtml = '<div class="pitch-breakdown">' + entries.map(([grade, v]) => {
+      const pct = maxCount ? Math.round((v.count / maxCount) * 100) : 0;
+      return '<div class="pitch-row">'+
+        '<div class="pitch-row-label">'+esc(grade)+'</div>'+
+        '<div class="pitch-row-bar-track"><div class="pitch-row-bar" style="width:'+pct+'%"></div></div>'+
+        '<div class="pitch-row-count">'+v.count+'</div>'+
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  const header = '<div class="section-divider" style="margin-top:0">Pitch / problem breakdown by grade'+
+    (totalForFilter ? ' <span style="font-weight:400;color:var(--text-muted,inherit)">('+totalForFilter+' total)</span>' : '')+
+    '</div>';
+
+  document.getElementById('stats-pitch-breakdown').innerHTML = filterRow + header + bodyHtml;
 }
 
 function closeModal() { document.getElementById('modal-bg').classList.remove('open'); }
@@ -261,6 +354,7 @@ function openDayModal(key) {
     '<div class="form-row single"><div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"></div></div>'+
     '<div style="margin-bottom:14px"><label style="margin-bottom:8px;display:block">How did it go?</label>'+
     '<div class="tag-row" id="vibe-tags" style="gap:8px">'+
+    '<button class="vibe-tag vgr'+(vibe==='great'?' selected':'')+'" data-val="great" onclick="selTag(this,\'vibe-tags\')">Great</button>'+
     '<button class="vibe-tag vg'+(vibe==='good'?' selected':'')+'" data-val="good" onclick="selTag(this,\'vibe-tags\')">Good</button>'+
     '<button class="vibe-tag vm'+(vibe==='medium'?' selected':'')+'" data-val="medium" onclick="selTag(this,\'vibe-tags\')">Medium</button>'+
     '<button class="vibe-tag vb'+(vibe==='bad'?' selected':'')+'" data-val="bad" onclick="selTag(this,\'vibe-tags\')">Bad</button>'+
@@ -287,18 +381,17 @@ function deleteDay(key) { delete state.days[key]; saveState(); closeModal(); ren
 
 /* CLIMB MODAL */
 function climbGradeOpts(cat,venue) {
-  return CLIMB_GRADES.filter(g=>g.cat===cat&&g.venue===venue).map(g=>'<option value="'+g.pts+'">'+esc(g.k)+'</option>').join('');
+  return CLIMB_GRADES.filter(g=>g.cat===cat&&g.venue===venue).map(g=>'<option value="'+esc(g.k)+'">'+esc(g.k)+'</option>').join('');
 }
 function openClimbModal(idx) {
   const editing=idx!==null&&idx!==undefined&&idx>=0;
   const c=editing?state.climbs[idx]:{};
   const venue=c.venue||'indoor', ct=c.climbType||'boulder';
-  const rowsHtml=(c.rows&&c.rows.length?c.rows:[{grade:'',count:1,pts:0}]).map(r=>{
-    const opts=CLIMB_GRADES.filter(g=>g.cat===ct&&g.venue===venue).map(g=>'<option value="'+g.pts+'"'+(g.k===r.grade?' selected':'')+'>'+esc(g.k)+'</option>').join('');
-    return '<div class="subrow"><select onchange="recalcRow(this)">'+opts+'</select>'+
-      '<input type="number" min="1" max="99" value="'+(r.count||1)+'" oninput="recalcRow(this)">'+
-      '<div class="pts-badge">0.0 pts</div>'+
-      '<button class="remove-btn" onclick="this.closest(\'.subrow\').remove();updateClimbTotal()">&times;</button></div>';
+  const rowsHtml=(c.rows&&c.rows.length?c.rows:[{grade:'',count:1}]).map(r=>{
+    const opts=CLIMB_GRADES.filter(g=>g.cat===ct&&g.venue===venue).map(g=>'<option value="'+esc(g.k)+'"'+(g.k===r.grade?' selected':'')+'>'+esc(g.k)+'</option>').join('');
+    return '<div class="subrow"><select>'+opts+'</select>'+
+      '<input type="number" min="1" max="99" value="'+(r.count||1)+'">'+
+      '<button class="remove-btn" onclick="this.closest(\'.subrow\').remove()">&times;</button></div>';
   }).join('');
   openModal(
     '<div class="modal-header"><span class="modal-title">'+(editing?'Edit session':'Log a climb session')+'</span>'+
@@ -322,55 +415,37 @@ function openClimbModal(idx) {
     '<div class="form-row single"><div><label>Notes</label><textarea id="m-notes" placeholder="Sends, projects, how you felt...">'+esc(c.notes||'')+'</textarea></div></div>'+
     '<div class="modal-footer"><div class="modal-footer-left">'+
     (editing?'<button class="btn btn-sm btn-danger" onclick="deleteClimb('+idx+')">Delete</button>':'')+
-    '<span style="font-size:13px;color:var(--text)">Total: <strong id="climb-total">0.0</strong> pts</span></div>'+
-    '<button class="btn btn-sm btn-accent" onclick="saveClimb('+(editing?idx:-1)+')">Save session</button></div>');
-  document.querySelectorAll('#climb-subrows .subrow').forEach(r=>updateSubrowBadge(r));
-  updateClimbTotal();
+    '</div><button class="btn btn-sm btn-accent" onclick="saveClimb('+(editing?idx:-1)+')">Save session</button></div>');
 }
 function refreshClimbGrades() {
   const venue=document.getElementById('m-venue').value;
   const ct=getSelectedTag('climb-type-tags').toLowerCase();
   document.querySelectorAll('#climb-subrows .subrow').forEach(row=>{
     row.querySelector('select').innerHTML=climbGradeOpts(ct,venue);
-    updateSubrowBadge(row);
-  }); updateClimbTotal();
+  });
 }
 function addClimbRow() {
   const venue=document.getElementById('m-venue')?.value||'indoor';
   const ct=getSelectedTag('climb-type-tags').toLowerCase()||'boulder';
   const row=document.createElement('div'); row.className='subrow';
-  row.innerHTML='<select onchange="recalcRow(this)">'+climbGradeOpts(ct,venue)+'</select>'+
-    '<input type="number" min="1" max="99" value="1" oninput="recalcRow(this)">'+
-    '<div class="pts-badge">0.0 pts</div>'+
-    '<button class="remove-btn" onclick="this.closest(\'.subrow\').remove();updateClimbTotal()">&times;</button>';
+  row.innerHTML='<select>'+climbGradeOpts(ct,venue)+'</select>'+
+    '<input type="number" min="1" max="99" value="1">'+
+    '<button class="remove-btn" onclick="this.closest(\'.subrow\').remove()">&times;</button>';
   document.getElementById('climb-subrows').appendChild(row);
-  updateSubrowBadge(row); updateClimbTotal();
-}
-function recalcRow(el) { updateSubrowBadge(el.closest('.subrow')); updateClimbTotal(); }
-function updateSubrowBadge(row) {
-  const sel=row.querySelector('select'),inp=row.querySelector('input');
-  const pts=(parseFloat(sel?.value)||0)*(parseInt(inp?.value)||0);
-  const badge=row.querySelector('.pts-badge'); if(badge) badge.textContent=pts.toFixed(1)+' pts';
-}
-function updateClimbTotal() {
-  let t=0;
-  document.querySelectorAll('#climb-subrows .subrow').forEach(r=>{
-    t+=(parseFloat(r.querySelector('select')?.value)||0)*(parseInt(r.querySelector('input')?.value)||0);
-  });
-  const el=document.getElementById('climb-total'); if(el) el.textContent=t.toFixed(1);
 }
 function saveClimb(idx) {
   const date=document.getElementById('m-date').value;
   const venue=document.getElementById('m-venue').value;
   const ct=getSelectedTag('climb-type-tags').toLowerCase()||'boulder';
   const notes=document.getElementById('m-notes').value;
-  let total=0; const rows=[];
+  const rows=[];
   document.querySelectorAll('#climb-subrows .subrow').forEach(row=>{
     const sel=row.querySelector('select'),inp=row.querySelector('input');
-    const count=parseInt(inp?.value)||0, pts=parseFloat(sel?.value)||0;
-    if(count>0){rows.push({grade:sel.options[sel.selectedIndex]?.text||'',count,pts});total+=pts*count;}
+    const count=parseInt(inp?.value)||0;
+    const grade=sel?.value||'';
+    if(count>0 && grade){rows.push({grade,count});}
   });
-  const entry={date,venue,climbType:ct,rows,notes,points:total};
+  const entry={date,venue,climbType:ct,rows,notes};
   if(idx>=0) state.climbs[idx]=entry; else state.climbs.push(entry);
   saveState(); closeModal(); renderClimbs(); renderCalendar(); renderStats();
 }
@@ -391,31 +466,20 @@ function openCardioModal(idx) {
     '</select></div></div>'+
     '<div class="form-row single"><div><label>Objective / route</label><input type="text" id="m-objective" value="'+esc(c.objective||'')+'" placeholder="e.g. Green Mountain, Anenome loop"></div></div>'+
     '<div class="form-row three">'+
-    '<div><label>Miles</label><input type="number" id="m-miles" step="0.1" min="0" value="'+esc(c.miles||'')+'" placeholder="0.0" oninput="calcCardioPts()"></div>'+
-    '<div><label>Vert (ft)</label><input type="number" id="m-vert" step="100" min="0" value="'+esc(c.vert||'')+'" placeholder="0" oninput="calcCardioPts()"></div>'+
+    '<div><label>Miles</label><input type="number" id="m-miles" step="0.1" min="0" value="'+esc(c.miles||'')+'" placeholder="0.0"></div>'+
+    '<div><label>Vert (ft)</label><input type="number" id="m-vert" step="100" min="0" value="'+esc(c.vert||'')+'" placeholder="0"></div>'+
     '<div><label>Time (hrs)</label><input type="number" id="m-time" step="0.1" min="0" value="'+esc(c.time||'')+'" placeholder="0.0"></div></div>'+
     '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Terrain</label>'+
     '<div class="tag-row" id="terrain-tags">'+
-    '<button class="tag'+(terrain==='trail'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\');calcCardioPts()">Trail</button>'+
-    '<button class="tag'+(terrain==='road'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\');calcCardioPts()">Road</button>'+
-    '<button class="tag'+(terrain==='weighted'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\');calcCardioPts()">Weighted (pack)</button>'+
-    '<button class="tag'+(terrain==='scramble'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\');calcCardioPts()">Scramble</button>'+
+    '<button class="tag'+(terrain==='trail'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Trail</button>'+
+    '<button class="tag'+(terrain==='road'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Road</button>'+
+    '<button class="tag'+(terrain==='weighted'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Weighted (pack)</button>'+
+    '<button class="tag'+(terrain==='scramble'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Scramble</button>'+
     '</div></div>'+
     '<div class="form-row single"><div><label>Notes</label><textarea id="m-notes" placeholder="How it felt, conditions, anything notable...">'+esc(c.notes||'')+'</textarea></div></div>'+
     '<div class="modal-footer"><div class="modal-footer-left">'+
     (editing?'<button class="btn btn-sm btn-danger" onclick="deleteCardio('+idx+')">Delete</button>':'')+
-    '<span style="font-size:13px;color:var(--text)">Est. points: <strong id="cardio-pts">0.0</strong></span></div>'+
-    '<button class="btn btn-sm btn-accent" onclick="saveCardio('+(editing?idx:-1)+')">Save activity</button></div>');
-  calcCardioPts();
-}
-function calcCardioPts() {
-  const tt=getSelectedTag('terrain-tags').toLowerCase();
-  const tKey=tt==='weighted (pack)'?'weighted':(tt||'trail');
-  const mi=parseFloat(document.getElementById('m-miles')?.value)||0;
-  const vt=parseFloat(document.getElementById('m-vert')?.value)||0;
-  let pts=mi*(TERRAIN_MILE_PTS[tKey]||1.0)+vt*(TERRAIN_VERT_PTS[tKey]||0.002);
-  if(mi>20) pts*=1.3; else if(mi>10) pts*=1.2;
-  const el=document.getElementById('cardio-pts'); if(el) el.textContent=pts.toFixed(1);
+    '</div><button class="btn btn-sm btn-accent" onclick="saveCardio('+(editing?idx:-1)+')">Save activity</button></div>');
 }
 function saveCardio(idx) {
   const date=document.getElementById('m-date').value;
@@ -427,10 +491,7 @@ function saveCardio(idx) {
   const notes=document.getElementById('m-notes').value;
   const tt=getSelectedTag('terrain-tags').toLowerCase();
   const terrain=tt==='weighted (pack)'?'weighted':(tt||'trail');
-  const mi=parseFloat(miles)||0, vt=parseFloat(vert)||0;
-  let pts=mi*(TERRAIN_MILE_PTS[terrain]||1.0)+vt*(TERRAIN_VERT_PTS[terrain]||0.002);
-  if(mi>20) pts*=1.3; else if(mi>10) pts*=1.2;
-  const entry={date,actType,objective,miles,vert,time,notes,terrain,points:pts};
+  const entry={date,actType,objective,miles,vert,time,notes,terrain};
   if(idx>=0) state.cardio[idx]=entry; else state.cardio.push(entry);
   saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats();
 }

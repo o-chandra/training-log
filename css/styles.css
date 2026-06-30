@@ -29,9 +29,10 @@
     --radius: 8px;
     --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     /* vibe colors: good=green, medium=yellow, bad=red */
-    --vibe-good:        rgba(187,247,208,0.92); --vibe-good-b: #4ade80;   --vibe-good-t: #166534;
-    --vibe-medium:      rgba(254,240,138,0.92); --vibe-medium-b: #facc15; --vibe-medium-t: #854d0e;
-    --vibe-bad:         rgba(254,202,202,0.92); --vibe-bad-b: #f87171;    --vibe-bad-t: #991b1b;
+    --vibe-great:       #b6d7a8; --vibe-great-b: #38761d;  --vibe-great-t: #274e13;
+    --vibe-good:        #d9ead3; --vibe-good-b: #93c47d;   --vibe-good-t: #38761d;
+    --vibe-medium:      #fff2cc; --vibe-medium-b: #ffd966; --vibe-medium-t: #bf9000;
+    --vibe-bad:         #f4cccc; --vibe-bad-b: #e06666;    --vibe-bad-t: #990000;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -61,9 +62,10 @@
       --warning-bg: rgba(69,26,3,0.9);
       --warning-border: #78350f;
       --warning-text: #fcd34d;
-      --vibe-good:    rgba(20,83,45,0.88);   --vibe-good-b: #166534;   --vibe-good-t: #86efac;
-      --vibe-medium:  rgba(69,45,3,0.88);    --vibe-medium-b: #78350f; --vibe-medium-t: #fde047;
-      --vibe-bad:     rgba(69,10,10,0.88);   --vibe-bad-b: #7f1d1d;   --vibe-bad-t: #fca5a5;
+      --vibe-great:   #274e13;   --vibe-great-b: #6aa84f;  --vibe-great-t: #d9ead3;
+      --vibe-good:    #38761d;   --vibe-good-b: #6aa84f;   --vibe-good-t: #d9ead3;
+      --vibe-medium:  #7f6000;   --vibe-medium-b: #bf9000; --vibe-medium-t: #fff2cc;
+      --vibe-bad:     #660000;   --vibe-bad-b: #cc4125;    --vibe-bad-t: #f4cccc;
     }
   }
 
@@ -115,15 +117,18 @@
 
   /* vibe selector tags */
   .vibe-tag { padding: 7px 16px; border-radius: 99px; border: 2px solid transparent; font-size: 13px; cursor: pointer; font-family: var(--font); font-weight: 600; transition: outline 0.1s; }
-  .vibe-tag.vg { background: var(--vibe-good);   color: var(--vibe-good-t);   border-color: var(--vibe-good-b); }
-  .vibe-tag.vm { background: var(--vibe-medium); color: var(--vibe-medium-t); border-color: var(--vibe-medium-b); }
-  .vibe-tag.vb { background: var(--vibe-bad);    color: var(--vibe-bad-t);    border-color: var(--vibe-bad-b); }
+  .vibe-tag.vgr { background: var(--vibe-great);  color: var(--vibe-great-t);  border-color: var(--vibe-great-b); }
+  .vibe-tag.vg  { background: var(--vibe-good);   color: var(--vibe-good-t);   border-color: var(--vibe-good-b); }
+  .vibe-tag.vm  { background: var(--vibe-medium); color: var(--vibe-medium-t); border-color: var(--vibe-medium-b); }
+  .vibe-tag.vb  { background: var(--vibe-bad);    color: var(--vibe-bad-t);    border-color: var(--vibe-bad-b); }
   .vibe-tag.selected { outline: 3px solid var(--text); outline-offset: 2px; }
 
   /* legend */
   .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); }
   .legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; flex-shrink: 0; }
+  .ld-great   { background: var(--vibe-great);   border-color: var(--vibe-great-b); }
+  .ld-great   { background: var(--vibe-great);   border-color: var(--vibe-great-b); }
   .ld-good    { background: var(--vibe-good);    border-color: var(--vibe-good-b); }
   .ld-medium  { background: var(--vibe-medium);  border-color: var(--vibe-medium-b); }
   .ld-bad     { background: var(--vibe-bad);     border-color: var(--vibe-bad-b); }
@@ -157,6 +162,8 @@
   .day-cell:hover, .month-cell:hover { border-color: var(--border-strong); }
 
   /* vibe-based cell coloring */
+  .day-cell.vibe-great,  .month-cell.vibe-great  { background: var(--vibe-great);   border-color: var(--vibe-great-b); }
+  .day-cell.vibe-great,  .month-cell.vibe-great  { background: var(--vibe-great);   border-color: var(--vibe-great-b); }
   .day-cell.vibe-good,   .month-cell.vibe-good   { background: var(--vibe-good);    border-color: var(--vibe-good-b); }
   .day-cell.vibe-medium, .month-cell.vibe-medium  { background: var(--vibe-medium);  border-color: var(--vibe-medium-b); }
   .day-cell.vibe-bad,    .month-cell.vibe-bad     { background: var(--vibe-bad);     border-color: var(--vibe-bad-b); }
@@ -214,6 +221,17 @@
   .fuel-body { font-size: 13px; color: var(--text); line-height: 1.6; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 
   .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text); font-size: 14px; }
+
+  /* pitch/problem grade breakdown */
+  .pitch-breakdown { display: flex; flex-direction: column; gap: 8px; margin-top: 0.5rem; }
+  .pitch-row { display: grid; grid-template-columns: 140px 1fr 36px; gap: 10px; align-items: center; }
+  .pitch-row-label { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pitch-row-bar-track { background: var(--surface-raised); border-radius: 6px; height: 14px; overflow: hidden; border: 1px solid var(--border); }
+  .pitch-row-bar { background: var(--accent); height: 100%; border-radius: 6px 0 0 6px; min-width: 3px; }
+  .pitch-row-count { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; }
+  @media (max-width: 500px) {
+    .pitch-row { grid-template-columns: 100px 1fr 30px; }
+  }
   .modal-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; flex-wrap: wrap; gap: 8px; }
   .modal-footer-left { display: flex; align-items: center; gap: 12px; }
 

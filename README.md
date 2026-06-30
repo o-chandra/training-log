@@ -69,5 +69,5 @@ The `api/strava-token.js` file is a stub for the OAuth token exchange step requi
 ## Customizing
 
 - **Background image:** swap `assets/mountain-bg.jpg` for any photo you like — same filename, or update the path in `css/styles.css` under `.hero-bg`.
-- **Points formulas:** edit the `CLIMB_GRADES`, `TERRAIN_MILE_PTS`, and `TERRAIN_VERT_PTS` constants near the top of `js/app.js`.
-- **Colors:** the `:root` CSS variables at the top of `css/styles.css` control the vibe colors (good/medium/bad) and overall theme, including a dark mode variant.
+- **Climb grade catalog:** edit the `CLIMB_GRADES` constant near the top of `js/app.js` to add, remove, or rename gradeable categories. The app tracks pitch/problem *counts* per grade rather than a points system — the Stats tab's pitch breakdown is filterable by date range, venue, and climb type.
+- **Colors:** the `:root` CSS variables at the top of `css/styles.css` control the vibe colors (great/good/medium/bad) and overall theme, including a dark mode variant.
