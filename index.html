@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training log</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="hero-bg"></div>
+
+<div class="app">
+  <div class="top-row">
+    <h1>Training log</h1>
+    <div class="backup-row">
+      <button class="btn btn-sm" onclick="exportData()">Export backup</button>
+      <label class="import-label" for="import-input">Import backup</label>
+      <input type="file" id="import-input" accept=".json" onchange="importData(event)">
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('weekly',this)">Weekly log</button>
+    <button class="tab" onclick="showTab('climbs',this)">Climbs</button>
+    <button class="tab" onclick="showTab('cardio',this)">Cardio</button>
+    <button class="tab" onclick="showTab('fuel',this)">Fuel &amp; gear</button>
+    <button class="tab" onclick="showTab('stats',this)">Stats</button>
+  </div>
+
+  <div id="weekly" class="section active">
+    <div class="nav-row">
+      <button class="week-nav" onclick="changePeriod(-1)">&#8249;</button>
+      <span id="period-label" class="period-label"></span>
+      <button class="week-nav" onclick="changePeriod(1)">&#8250;</button>
+      <div class="toggle-group" style="margin-left:4px">
+        <button class="btn-toggle active" id="toggle-week" onclick="setView('week')">Week</button>
+        <button class="btn-toggle" id="toggle-month" onclick="setView('month')">Month</button>
+      </div>
+      <button class="btn btn-sm btn-accent" onclick="openDayModal(null)" style="margin-left:auto">+ Log day</button>
+    </div>
+    <div class="legend">
+      <span style="font-size:12px;color:var(--text);font-weight:600">Vibe:</span>
+      <span class="legend-item"><span class="legend-dot ld-good"></span>Good</span>
+      <span class="legend-item"><span class="legend-dot ld-medium"></span>Medium</span>
+      <span class="legend-item"><span class="legend-dot ld-bad"></span>Bad</span>
+    </div>
+    <div id="calendar-area"></div>
+    <div id="period-stats"></div>
+  </div>
+
+  <div id="climbs" class="section">
+    <div class="filter-row">
+      <select id="climb-type-filter" onchange="renderClimbs()" style="font-size:13px;padding:5px 10px;width:auto">
+        <option value="all">All types</option>
+        <option value="boulder">Boulder</option>
+        <option value="sport">Sport</option>
+        <option value="trad">Trad</option>
+        <option value="alpine">Alpine</option>
+      </select>
+      <select id="climb-venue-filter" onchange="renderClimbs()" style="font-size:13px;padding:5px 10px;width:auto">
+        <option value="all">Indoor + outdoor</option>
+        <option value="indoor">Indoor</option>
+        <option value="outdoor">Outdoor</option>
+      </select>
+      <button class="btn btn-sm btn-accent" onclick="openClimbModal(null)" style="margin-left:auto">+ Log session</button>
+    </div>
+    <div id="climb-list"></div>
+  </div>
+
+  <div id="cardio" class="section">
+    <div class="filter-row">
+      <button class="btn btn-sm btn-accent" onclick="openCardioModal(null)" style="margin-left:auto">+ Log activity</button>
+    </div>
+    <div id="cardio-list"></div>
+  </div>
+
+  <div id="fuel" class="section">
+    <div class="filter-row">
+      <button class="btn btn-sm btn-accent" onclick="openFuelModal(null)" style="margin-left:auto">+ Add note</button>
+    </div>
+    <div id="fuel-list"></div>
+  </div>
+
+  <div id="stats" class="section">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div id="stats-breakdown"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal-content"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Local env files (for future Strava secrets, etc.)
+.env
+.env.local
+
+# Node (if a serverless function setup is added later)
+node_modules/
