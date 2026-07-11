@@ -1,6 +1,6 @@
 # Training Log
 
-A lightweight, no-backend training log for climbing and cardio sessions — weekly/monthly calendar views, vibe-based color coding, points tracking, and fuel/gear notes. All data is stored locally in the browser (`localStorage`), with manual export/import for backups (or *new* the option for cloud backups)
+A lightweight, no-backend training log for climbing and cardio sessions — weekly/monthly calendar views, vibe-based color coding, points tracking, and fuel/gear notes. All data is stored locally in the browser (`localStorage`), with manual export/import for backups.
 
 ## Live site
 

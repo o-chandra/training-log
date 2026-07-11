@@ -948,15 +948,45 @@
       "date": "2026-05-04",
       "venue": "indoor",
       "climbType": "boulder",
-      "rows": [],
-      "notes": "5 ish problems problems \u2014 grades: v2-v6 \u2014 focus: limit bouldering? \u2014 Felt meh, tired and down. Got close on a new slabby 6. Didn't get new 5 despite many attempts."
+      "rows": [
+        {
+          "grade": "Indoor v0-v2",
+          "count": 2
+        },
+        {
+          "grade": "Indoor v3-v4",
+          "count": 2
+        },
+        {
+          "grade": "Indoor v5-v6",
+          "count": 1
+        }
+      ],
+      "notes": "Felt meh, tired and down. Got close on a new slabby 6. Didn't get new 5 despite many attempts."
     },
     {
       "date": "2026-05-05",
       "venue": "indoor",
       "climbType": "sport",
-      "rows": [],
-      "notes": "5 routes problems \u2014 grades: 5.10a-5.11d \u2014 focus: harder ropes \u2014 Pumped af today but tried hard on some good routes."
+      "rows": [
+        {
+          "grade": "Indoor 10",
+          "count": 1
+        },
+        {
+          "grade": "Indoor 10",
+          "count": 1
+        },
+        {
+          "grade": "Indoor 11",
+          "count": 1
+        },
+        {
+          "grade": "Indoor 11",
+          "count": 2
+        }
+      ],
+      "notes": "Pumped af today but tried hard on some good routes."
     },
     {
       "date": "2026-05-19",
@@ -1095,113 +1125,6 @@
       "date": "2026-05-08",
       "venue": "outdoor",
       "climbType": "sport",
-      "rows": [],
-      "notes": "3.0 pitches/problems \u2014 grades: 5.10a-5.12b \u2014 style: granite sport \u2014 figured out crux boulder problem on CG!"
-    },
-    {
-      "date": "2026-05-09",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "4.0 pitches/problems \u2014 grades: 5.9+-5.11b/c \u2014 style: granite sport \u2014 tired from yesterday, sent one of the 11s at the bowling alley I hadn't sent in october, other one is still to be sent..."
-    },
-    {
-      "date": "2026-05-12",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "3.0 pitches/problems \u2014 grades: 5.10a-5.12b \u2014 style: granite sport \u2014 did crux BP second go on CG then couldn't repeat it lol. The rest goes!!"
-    },
-    {
-      "date": "2026-05-15",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "3.0 pitches/problems \u2014 grades: 5.9-5.12b \u2014 style: granite sport \u2014 tried Prince of Thieves, the 12b at Sherwood. It doesn't go lol. Also climbed 11b overhanging that felt hard."
-    },
-    {
-      "date": "2026-05-16",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "3.0 pitches/problems \u2014 grades: 5.10a-5.11c \u2014 style: granite sport \u2014 Oceanic wall-- new to me, like it a lot. Stiff slab.Wrist hurting. Wimped out hanging draws on 11a but flashed 11c (with draws lovingly extended by P)"
-    },
-    {
-      "date": "2026-05-22",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "1.0 pitches/problems \u2014 grades: 5.12b \u2014 style: granite sport \u2014 still can't repeat crux on CG yeesh. Hard and tired today."
-    },
-    {
-      "date": "2026-05-23",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "4.0 pitches/problems \u2014 grades: 5.9-5.12a \u2014 style: granite sport \u2014 trying sargasso sea, 12a. Sent on TR second go...."
-    },
-    {
-      "date": "2026-05-29",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "4.0 pitches/problems \u2014 grades: 5.8-5.11d \u2014 style: granite sport \u2014 devil's gate, sent devil dog 11b"
-    },
-    {
-      "date": "2026-05-30",
-      "venue": "outdoor",
-      "climbType": "sport",
-      "rows": [],
-      "notes": "5.0 pitches/problems \u2014 grades: 5.9-5.10c \u2014 style: granite sport \u2014 wipeyur moderates, very tired"
-    },
-    {
-      "date": "2026-05-04",
-      "venue": "indoor",
-      "climbType": "boulder",
-      "rows": [
-        {
-          "grade": "Indoor v0-v2",
-          "count": 2
-        },
-        {
-          "grade": "Indoor v3-v4",
-          "count": 2
-        },
-        {
-          "grade": "Indoor v5-v6",
-          "count": 1
-        }
-      ],
-      "notes": "Felt meh, tired and down. Got close on a new slabby 6. Didn't get new 5 despite many attempts."
-    },
-    {
-      "date": "2026-05-05",
-      "venue": "indoor",
-      "climbType": "sport",
-      "rows": [
-        {
-          "grade": "Indoor 10",
-          "count": 1
-        },
-        {
-          "grade": "Indoor 10",
-          "count": 1
-        },
-        {
-          "grade": "Indoor 11",
-          "count": 1
-        },
-        {
-          "grade": "Indoor 11",
-          "count": 2
-        }
-      ],
-      "notes": "Pumped af today but tried hard on some good routes."
-    },
-    {
-      "date": "2026-05-08",
-      "venue": "outdoor",
-      "climbType": "sport",
       "rows": [
         {
           "grade": "sport 10-",
@@ -1271,6 +1194,13 @@
       "notes": "tried Prince of Thieves, the 12b at Sherwood. It doesn't go lol. Also climbed 11b overhanging that felt hard."
     },
     {
+      "date": "2026-05-15",
+      "venue": "outdoor",
+      "climbType": "sport",
+      "rows": [],
+      "notes": "3.0 pitches/problems \u2014 grades: 5.9-5.12b \u2014 style: granite sport \u2014 tried Prince of Thieves, the 12b at Sherwood. It doesn't go lol. Also climbed 11b overhanging that felt hard."
+    },
+    {
       "date": "2026-05-16",
       "venue": "outdoor",
       "climbType": "sport",
@@ -1289,18 +1219,6 @@
         }
       ],
       "notes": "Oceanic wall-- new to me, like it a lot. Stiff slab.Wrist hurting. Wimped out hanging draws on 11a but flashed 11c (with draws lovingly extended by P)"
-    },
-    {
-      "date": "2026-05-19",
-      "venue": "indoor",
-      "climbType": "boulder",
-      "rows": [
-        {
-          "grade": "Indoor v3-v4",
-          "count": 3
-        }
-      ],
-      "notes": ""
     },
     {
       "date": "2026-05-22",
@@ -1333,46 +1251,6 @@
         }
       ],
       "notes": "trying sargasso sea, 12a. Sent on TR second go...."
-    },
-    {
-      "date": "2026-05-26",
-      "venue": "indoor",
-      "climbType": "boulder",
-      "rows": [
-        {
-          "grade": "Indoor v0-v2",
-          "count": 4
-        },
-        {
-          "grade": "Indoor v3-v4",
-          "count": 3
-        },
-        {
-          "grade": "Indoor v5-v6",
-          "count": 2
-        }
-      ],
-      "notes": ""
-    },
-    {
-      "date": "2026-05-27",
-      "venue": "indoor",
-      "climbType": "boulder",
-      "rows": [
-        {
-          "grade": "Indoor v0-v2",
-          "count": 4
-        },
-        {
-          "grade": "Indoor v3-v4",
-          "count": 2
-        },
-        {
-          "grade": "Indoor v5-v6",
-          "count": 2
-        }
-      ],
-      "notes": "kilter board v5!"
     },
     {
       "date": "2026-05-29",
@@ -1413,6 +1291,58 @@
         }
       ],
       "notes": "moderates at wipeyur, very tired"
+    },
+    {
+      "date": "2026-05-19",
+      "venue": "indoor",
+      "climbType": "boulder",
+      "rows": [
+        {
+          "grade": "Indoor v3-v4",
+          "count": 3
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "date": "2026-05-26",
+      "venue": "indoor",
+      "climbType": "boulder",
+      "rows": [
+        {
+          "grade": "Indoor v0-v2",
+          "count": 4
+        },
+        {
+          "grade": "Indoor v3-v4",
+          "count": 3
+        },
+        {
+          "grade": "Indoor v5-v6",
+          "count": 2
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "date": "2026-05-27",
+      "venue": "indoor",
+      "climbType": "boulder",
+      "rows": [
+        {
+          "grade": "Indoor v0-v2",
+          "count": 4
+        },
+        {
+          "grade": "Indoor v3-v4",
+          "count": 2
+        },
+        {
+          "grade": "Indoor v5-v6",
+          "count": 2
+        }
+      ],
+      "notes": "kilter board v5!"
     },
     {
       "date": "2026-06-01",
@@ -1595,8 +1525,7 @@
       "miles": "5.86",
       "vert": "2375",
       "time": "1.8",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-01",
@@ -1605,8 +1534,7 @@
       "miles": "3.31",
       "vert": "1089",
       "time": "1.0",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-03",
@@ -1615,8 +1543,7 @@
       "miles": "9.68",
       "vert": "1754",
       "time": "2.38",
-      "notes": "",
-      "terrain": "road"
+      "notes": ""
     },
     {
       "date": "2026-05-05",
@@ -1625,8 +1552,7 @@
       "miles": "2.1",
       "vert": "62",
       "time": "0.28",
-      "notes": "",
-      "terrain": "road"
+      "notes": ""
     },
     {
       "date": "2026-05-07",
@@ -1635,8 +1561,7 @@
       "miles": "2.0",
       "vert": "69",
       "time": "0.28",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-10",
@@ -1645,8 +1570,7 @@
       "miles": "18.33",
       "vert": "6093",
       "time": "6.6",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-13",
@@ -1655,8 +1579,7 @@
       "miles": "5.86",
       "vert": "2375",
       "time": "1.98",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-17",
@@ -1665,8 +1588,7 @@
       "miles": "9.5",
       "vert": "3301",
       "time": "2.48",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-19",
@@ -1675,8 +1597,7 @@
       "miles": "7.8",
       "vert": "1115",
       "time": "1.5",
-      "notes": "ouch knees",
-      "terrain": "trail"
+      "notes": "ouch knees"
     },
     {
       "date": "2026-05-21",
@@ -1685,8 +1606,7 @@
       "miles": "5.91",
       "vert": "2336",
       "time": "1.82",
-      "notes": "quads burning, felt like redline effort for a lot of the up",
-      "terrain": "trail"
+      "notes": "quads burning, felt like redline effort for a lot of the up"
     },
     {
       "date": "2026-05-24",
@@ -1695,8 +1615,7 @@
       "miles": "11.57",
       "vert": "4058",
       "time": "4.45",
-      "notes": "W/ Ellie, she sprained her ankle, some delays",
-      "terrain": "trail"
+      "notes": "W/ Ellie, she sprained her ankle, some delays"
     },
     {
       "date": "2026-05-25",
@@ -1705,8 +1624,7 @@
       "miles": "6.55",
       "vert": "213",
       "time": "1.42",
-      "notes": "fun run",
-      "terrain": "road"
+      "notes": "fun run"
     },
     {
       "date": "2026-05-27",
@@ -1715,8 +1633,7 @@
       "miles": "5.86",
       "vert": "2375",
       "time": "1.75",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-05-29",
@@ -1726,7 +1643,7 @@
       "vert": "1024",
       "time": "0.55",
       "notes": "with pack",
-      "terrain": "weighted"
+      "weighted": true
     },
     {
       "date": "2026-05-31",
@@ -1735,8 +1652,7 @@
       "miles": "5.94",
       "vert": "1148",
       "time": "1.25",
-      "notes": "first time running all the up",
-      "terrain": "trail"
+      "notes": "first time running all the up"
     },
     {
       "date": "2026-06-02",
@@ -1745,8 +1661,7 @@
       "miles": "4.7",
       "vert": "210",
       "time": "0.7",
-      "notes": "",
-      "terrain": "road"
+      "notes": ""
     },
     {
       "date": "2026-06-06",
@@ -1756,7 +1671,7 @@
       "vert": "2047",
       "time": "5.0",
       "notes": "alpine season opener!",
-      "terrain": "weighted"
+      "weighted": true
     },
     {
       "date": "2026-06-07",
@@ -1765,8 +1680,7 @@
       "miles": "14.71",
       "vert": "4186",
       "time": "",
-      "notes": "some of this was actually biking but that's okay, counting it. Hard after alpine the day before.",
-      "terrain": "trail"
+      "notes": "some of this was actually biking but that's okay, counting it. Hard after alpine the day before."
     },
     {
       "date": "2026-06-09",
@@ -1775,8 +1689,7 @@
       "miles": "4.7",
       "vert": "210",
       "time": "0.7",
-      "notes": "",
-      "terrain": "road"
+      "notes": ""
     },
     {
       "date": "2026-06-10",
@@ -1785,8 +1698,7 @@
       "miles": "2.71",
       "vert": "1572",
       "time": "2.27",
-      "notes": "",
-      "terrain": "scramble"
+      "notes": ""
     },
     {
       "date": "2026-06-13",
@@ -1795,8 +1707,7 @@
       "miles": "19.71",
       "vert": "7461",
       "time": "11.0",
-      "notes": "",
-      "terrain": "scramble"
+      "notes": ""
     },
     {
       "date": "2026-06-19",
@@ -1806,7 +1717,7 @@
       "vert": "1226",
       "time": "1.5",
       "notes": "",
-      "terrain": "weighted"
+      "weighted": true
     },
     {
       "date": "2026-06-20",
@@ -1815,8 +1726,7 @@
       "miles": "9.05",
       "vert": "4449",
       "time": "6.0",
-      "notes": "",
-      "terrain": "scramble"
+      "notes": ""
     },
     {
       "date": "2026-06-27",
@@ -1825,8 +1735,7 @@
       "miles": "5.16",
       "vert": "2997",
       "time": "",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     },
     {
       "date": "2026-07-03",
@@ -1835,8 +1744,7 @@
       "miles": "14.1",
       "vert": "9003",
       "time": "",
-      "notes": "",
-      "terrain": "trail"
+      "notes": ""
     }
   ],
   "fuel": [

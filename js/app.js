@@ -59,7 +59,7 @@ function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(sta
 // Content-aware dedup: compares only the meaningful fields for each entry
 // type, so legacy cruft (like the old "points" field, or differing key
 // order) doesn't prevent a real duplicate from being caught.
-function cardioKey(c) { return ['date','actType','objective','miles','vert','time','terrain','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0'); }
+function cardioKey(c) { return ['date','actType','objective','miles','vert','time','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0') + '|' + (c.weighted?'1':'0'); }
 function climbKey(c) { return ['date','venue','climbType','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0') + '|' + JSON.stringify(c.rows||[]); }
 function fuelKey(f) { return ['date','objective','food','gear','notes'].map(k=>f[k]||'').join('|'); }
 function strengthKey(s) { return ['date','kind','area','time','notes'].map(k=>s[k]||'').join('|'); }
@@ -75,17 +75,47 @@ function dedupeArr(arr, keyFn) {
 }
 
 function dedupeState() {
-  // Strip legacy "points" field left over from the old points-based system
-  // before comparing, so it can't mask an otherwise-identical duplicate.
-  state.climbs.forEach(c => { delete c.points; });
+  // Strip legacy "points" field left over from the old points-based system --
+  // both the top-level one, and the per-row "pts" field that lived inside
+  // each grade row, which was masking real duplicates from being caught.
+  state.climbs.forEach(c => { delete c.points; (c.rows||[]).forEach(r => { delete r.pts; }); });
   state.cardio.forEach(c => { delete c.points; });
+
+  // Terrain tag was retired in favor of a standalone "Weighted" toggle
+  // (like Alpine). Carry forward anyone who had terrain==='weighted', then
+  // drop the field entirely so it can't reintroduce stale duplicates.
+  state.cardio.forEach(c => {
+    if (c.terrain === 'weighted' && !c.weighted) c.weighted = true;
+    delete c.terrain;
+  });
 
   const c = dedupeArr(state.climbs, climbKey);
   const ca = dedupeArr(state.cardio, cardioKey);
   const f = dedupeArr(state.fuel, fuelKey);
   const s = dedupeArr(state.strength, strengthKey);
-  const total = c.removed + ca.removed + f.removed + s.removed;
+  let total = c.removed + ca.removed + f.removed + s.removed;
   state.climbs = c.out; state.cardio = ca.out; state.fuel = f.out; state.strength = s.out;
+
+  // Some very old imports left behind a THIRD copy per session: an
+  // "empty rows, text-summary-in-notes" record from before structured
+  // grade rows existed. Different notes text means the plain content
+  // match above can't catch it -- so for any date+venue+type group that
+  // has at least one entry with real rows, drop the empty-rows entries
+  // as redundant leftovers.
+  const groups = {};
+  state.climbs.forEach(cl => { const gk = cl.date+'|'+cl.venue+'|'+cl.climbType; (groups[gk]=groups[gk]||[]).push(cl); });
+  const keep = [];
+  Object.values(groups).forEach(arr => {
+    const withRows = arr.filter(cl => (cl.rows||[]).length > 0);
+    if (withRows.length > 0 && withRows.length < arr.length) {
+      total += arr.length - withRows.length;
+      keep.push(...withRows);
+    } else {
+      keep.push(...arr);
+    }
+  });
+  state.climbs = keep;
+
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
   if (total > 0) showToast('Cleaned up ' + total + ' duplicate ' + (total===1?'entry':'entries'));
   return total;
@@ -172,7 +202,7 @@ function renderWeek() {
     const d=addDays(ws,i), key=fmtISO(d), entry=state.days[key]||null;
     const vc=vibeClass(entry);
     const isToday=key===today;
-    html+='<div class="day-cell '+vc+'" onclick="openDayModal(\''+key+'\')">'+
+    html+='<div class="day-cell '+vc+'" onclick="openLogChoiceModal(\''+key+'\')">'+
       '<div class="day-num'+(isToday?' today':'')+'">'+(isToday?'\u2022 ':'')+d.getDate()+'</div>'+
       cellBadges(key)+
       '<div class="day-content">'+esc(entry?entry.text:'')+'</div></div>';
@@ -204,7 +234,7 @@ function renderMonth() {
     if(!otherMonth) monthISOs.push(key);
     const vc=vibeClass(entry);
     const isToday=key===today;
-    html+='<div class="month-cell '+vc+(otherMonth?' other-month':'')+'" onclick="openDayModal(\''+key+'\')">'+
+    html+='<div class="month-cell '+vc+(otherMonth?' other-month':'')+'" onclick="openLogChoiceModal(\''+key+'\')">'+
       '<div class="day-num'+(isToday?' today':'')+'">'+(isToday?'\u2022 ':'')+d.getDate()+'</div>'+
       cellBadges(key)+
       '<div class="day-content">'+esc(entry?entry.text:'')+'</div></div>';
@@ -260,6 +290,7 @@ function renderCardio() {
   el.innerHTML=sorted.map(c=>'<div class="log-entry" onclick="openCardioModal('+c._i+')">'+
     '<div class="entry-header"><span class="pill pill-cardio">'+esc(c.actType||'cardio')+'</span>'+
     (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
+    (c.weighted?'<span class="pill pill-alpine">weighted</span>':'')+
     '<span class="entry-date">'+fmtDisplay(c.date)+'</span></div>'+
     '<div class="entry-detail">'+(c.objective?'<strong>'+esc(c.objective)+'</strong> \u00b7 ':'')+
     (c.miles?c.miles+' mi':'')+(c.vert?' \u00b7 '+Number(c.vert).toLocaleString()+' ft vert':'')+(c.time?' \u00b7 '+c.time+' hrs':'')+
@@ -400,15 +431,16 @@ function toggleSoloTag(el) { el.classList.toggle('selected'); }
 
 /* DAY MODAL */
 /* Chooser shown by "+ Log day" -- picks climb, cardio, or a plain rest-day/notes entry */
-function openLogChoiceModal() {
+function openLogChoiceModal(dateISO) {
+  const d = dateISO ? "'"+dateISO+"'" : 'null';
   openModal(
-    '<div class="modal-header"><span class="modal-title">Log</span>' +
+    '<div class="modal-header"><span class="modal-title">Log'+(dateISO?' \u2014 '+fmtDisplay(dateISO):'')+'</span>' +
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>' +
     '<div class="form-row single"><div style="display:flex;flex-direction:column;gap:8px">' +
-    '<button class="btn btn-accent" onclick="openClimbModal(null)">Climb session</button>' +
-    '<button class="btn btn-accent" onclick="openCardioModal(null)">Cardio activity</button>' +
-    '<button class="btn btn-accent" onclick="openStrengthModal(null)">Strength / Stretch</button>' +
-    '<button class="btn btn-accent" onclick="openDayModal(null)">Rest day / notes</button>' +
+    '<button class="btn btn-accent" onclick="openClimbModal(null,'+d+')">Climb session</button>' +
+    '<button class="btn btn-accent" onclick="openCardioModal(null,'+d+')">Cardio activity</button>' +
+    '<button class="btn btn-accent" onclick="openStrengthModal(null,'+d+')">Strength / Stretch</button>' +
+    '<button class="btn btn-accent" onclick="openDayModal('+d+')">Rest day / notes</button>' +
     '</div></div>');
 }
 
@@ -451,10 +483,11 @@ function deleteDay(key) { delete state.days[key]; saveState(); closeModal(); ren
 function climbGradeOpts(cat,venue) {
   return CLIMB_GRADES.filter(g=>g.cat===cat&&g.venue===venue).map(g=>'<option value="'+esc(g.k)+'">'+esc(g.k)+'</option>').join('');
 }
-function openClimbModal(idx) {
+function openClimbModal(idx, presetDate) {
   const editing=idx!==null&&idx!==undefined&&idx>=0;
   const c=editing?state.climbs[idx]:{};
   const venue=c.venue||'indoor', ct=c.climbType||'boulder';
+  const dateVal=c.date||presetDate||fmtISO(new Date());
   const rowsHtml=(c.rows&&c.rows.length?c.rows:[{grade:'',count:1}]).map(r=>{
     const opts=CLIMB_GRADES.filter(g=>g.cat===ct&&g.venue===venue).map(g=>'<option value="'+esc(g.k)+'"'+(g.k===r.grade?' selected':'')+'>'+esc(g.k)+'</option>').join('');
     return '<div class="subrow"><select>'+opts+'</select>'+
@@ -465,7 +498,7 @@ function openClimbModal(idx) {
     '<div class="modal-header"><span class="modal-title">'+(editing?'Edit session':'Log a climb session')+'</span>'+
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
     '<div class="form-row">'+
-    '<div><label>Date</label><input type="date" id="m-date" value="'+(c.date||fmtISO(new Date()))+'"></div>'+
+    '<div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"></div>'+
     '<div><label>Venue</label><select id="m-venue" onchange="refreshClimbGrades()">'+
     '<option value="indoor"'+(venue==='indoor'?' selected':'')+'>Indoor</option>'+
     '<option value="outdoor"'+(venue==='outdoor'?' selected':'')+'>Outdoor</option>'+
@@ -525,33 +558,27 @@ function saveClimb(idx) {
 function deleteClimb(idx) { state.climbs.splice(idx,1); saveState(); closeModal(); renderClimbs(); renderCalendar(); renderStats(); }
 
 /* CARDIO MODAL */
-function openCardioModal(idx) {
+function openCardioModal(idx, presetDate) {
   const editing=idx!==null&&idx!==undefined&&idx>=0;
   const c=editing?state.cardio[idx]:{};
-  const terrain=c.terrain||'trail';
+  const dateVal=c.date||presetDate||fmtISO(new Date());
   openModal(
     '<div class="modal-header"><span class="modal-title">'+(editing?'Edit activity':'Log a cardio activity')+'</span>'+
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
     '<div class="form-row">'+
-    '<div><label>Date</label><input type="date" id="m-date" value="'+(c.date||fmtISO(new Date()))+'"></div>'+
+    '<div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"></div>'+
     '<div><label>Activity type</label><select id="m-acttype">'+
     ['run','trail run','hike','scramble','bike'].map(t=>'<option value="'+t+'"'+(c.actType===t?' selected':'')+'>'+t+'</option>').join('')+
     '</select></div></div>'+
-    '<div style="margin-bottom:12px">'+
+    '<div class="tag-row" style="margin-bottom:12px">'+
     '<button class="tag'+(c.alpine?' selected':'')+'" id="cardio-alpine-tag" onclick="toggleSoloTag(this)">Alpine</button>'+
+    '<button class="tag'+(c.weighted?' selected':'')+'" id="cardio-weighted-tag" onclick="toggleSoloTag(this)">Weighted</button>'+
     '</div>'+
     '<div class="form-row single"><div><label>Objective / route</label><input type="text" id="m-objective" value="'+esc(c.objective||'')+'" placeholder="e.g. Green Mountain, Anenome loop"></div></div>'+
     '<div class="form-row three">'+
     '<div><label>Miles</label><input type="number" id="m-miles" step="0.1" min="0" value="'+esc(c.miles||'')+'" placeholder="0.0"></div>'+
     '<div><label>Vert (ft)</label><input type="number" id="m-vert" step="100" min="0" value="'+esc(c.vert||'')+'" placeholder="0"></div>'+
     '<div><label>Time (hrs)</label><input type="number" id="m-time" step="0.1" min="0" value="'+esc(c.time||'')+'" placeholder="0.0"></div></div>'+
-    '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Terrain</label>'+
-    '<div class="tag-row" id="terrain-tags">'+
-    '<button class="tag'+(terrain==='trail'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Trail</button>'+
-    '<button class="tag'+(terrain==='road'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Road</button>'+
-    '<button class="tag'+(terrain==='weighted'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Weighted (pack)</button>'+
-    '<button class="tag'+(terrain==='scramble'?' selected':'')+'" onclick="selTag(this,\'terrain-tags\')">Scramble</button>'+
-    '</div></div>'+
     '<div class="form-row single"><div><label>Notes</label><textarea id="m-notes" placeholder="How it felt, conditions, anything notable...">'+esc(c.notes||'')+'</textarea></div></div>'+
     '<div class="modal-footer"><div class="modal-footer-left">'+
     (editing?'<button class="btn btn-sm btn-danger" onclick="deleteCardio('+idx+')">Delete</button>':'')+
@@ -561,25 +588,25 @@ function saveCardio(idx) {
   const date=document.getElementById('m-date').value;
   const actType=document.getElementById('m-acttype').value;
   const alpine=document.getElementById('cardio-alpine-tag')?.classList.contains('selected');
+  const weighted=document.getElementById('cardio-weighted-tag')?.classList.contains('selected');
   const objective=document.getElementById('m-objective').value;
   const miles=document.getElementById('m-miles').value;
   const vert=document.getElementById('m-vert').value;
   const time=document.getElementById('m-time').value;
   const notes=document.getElementById('m-notes').value;
-  const tt=getSelectedTag('terrain-tags').toLowerCase();
-  const terrain=tt==='weighted (pack)'?'weighted':(tt||'trail');
-  const entry={date,actType,alpine,objective,miles,vert,time,notes,terrain};
+  const entry={date,actType,alpine,weighted,objective,miles,vert,time,notes};
   if(idx>=0) state.cardio[idx]=entry; else state.cardio.push(entry);
   saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats();
 }
 function deleteCardio(idx) { state.cardio.splice(idx,1); saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats(); }
 
 /* STRENGTH / PT MODAL */
-function openStrengthModal(idx) {
+function openStrengthModal(idx, presetDate) {
   const editing=idx!==null&&idx!==undefined&&idx>=0;
   const s=editing?state.strength[idx]:{};
   const area=s.area||'upper';
   const kind=s.kind||'strength';
+  const dateVal=s.date||presetDate||fmtISO(new Date());
   openModal(
     '<div class="modal-header"><span class="modal-title">'+(editing?'Edit session':'Log a session')+'</span>'+
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
@@ -589,7 +616,7 @@ function openStrengthModal(idx) {
     '<button class="tag'+(kind==='stretch'?' selected':'')+'" data-val="stretch" onclick="selTag(this,\'strength-kind-tags\');refreshStrengthFields()">Stretch</button>'+
     '</div></div>'+
     '<div class="form-row">'+
-    '<div><label>Date</label><input type="date" id="m-date" value="'+(s.date||fmtISO(new Date()))+'"></div>'+
+    '<div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"></div>'+
     '<div id="strength-time-wrap" style="'+(kind==='stretch'?'display:none':'')+'"><label>Time (hrs)</label><input type="number" id="m-time" step="0.1" min="0" value="'+esc(s.time||'')+'" placeholder="0.0"></div></div>'+
     '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Focus area</label>'+
     '<div class="tag-row" id="strength-area-tags">'+
