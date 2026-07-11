@@ -85,6 +85,10 @@
   .backup-row { display: flex; gap: 6px; align-items: center; }
   .import-label { padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 13px; font-family: var(--font); color: var(--text); }
   .import-label:hover { background: var(--surface-raised); }
+  .log-btn-group { display: flex; flex-direction: column; gap: 6px; }
+  .sync-status { font-size: 12px; color: var(--text-muted, #888); margin-right: 4px; min-width: 0; }
+  .sync-status.synced { color: #4a9e5c; }
+  .sync-status.error { color: #c0392b; }
   #import-input { display: none; }
 
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }

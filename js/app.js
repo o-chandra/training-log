@@ -39,9 +39,33 @@ let calView = 'week';
 
 function loadState() {
   try { const r=localStorage.getItem(STORAGE_KEY); if(r) state=JSON.parse(r); } catch(e){}
+  dedupeState();
   renderCalendar(); renderClimbs(); renderCardio(); renderFuel(); renderStats();
+  refreshSyncStatusIdle();
 }
-function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); } catch(e){} }
+function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); } catch(e){} scheduleGistSync(); }
+
+// Removes exact-duplicate entries (e.g. from the old re-merge-every-load bug).
+// Runs automatically on every load -- cheap, and harmless once data is clean.
+function dedupeArr(arr) {
+  const seen = new Set(); const out = []; let removed = 0;
+  for (const item of arr) {
+    const k = JSON.stringify(item);
+    if (seen.has(k)) { removed++; continue; }
+    seen.add(k); out.push(item);
+  }
+  return { out, removed };
+}
+function dedupeState() {
+  const c = dedupeArr(state.climbs), ca = dedupeArr(state.cardio), f = dedupeArr(state.fuel);
+  const total = c.removed + ca.removed + f.removed;
+  if (total > 0) {
+    state.climbs = c.out; state.cardio = ca.out; state.fuel = f.out;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+    showToast('Cleaned up ' + total + ' duplicate ' + (total===1?'entry':'entries'));
+  }
+  return total;
+}
 
 function getMonday(d) {
   const dt=new Date(d), day=dt.getDay();
@@ -344,6 +368,17 @@ function getSelectedTag(groupId) {
 }
 
 /* DAY MODAL */
+/* Small chooser shown by "+ Log activity" -- picks which modal to open */
+function openActivityChoiceModal() {
+  openModal(
+    '<div class="modal-header"><span class="modal-title">Log activity</span>' +
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>' +
+    '<div class="form-row single"><div style="display:flex;flex-direction:column;gap:8px">' +
+    '<button class="btn btn-accent" onclick="openClimbModal(null)">Climb session</button>' +
+    '<button class="btn btn-accent" onclick="openCardioModal(null)">Cardio activity</button>' +
+    '</div></div>');
+}
+
 function openDayModal(key) {
   const entry=key?(state.days[key]||{}):{}; const dateVal=key||fmtISO(new Date());
   const dt=key?fmtDisplay(key):'New day';
@@ -529,6 +564,131 @@ function saveFuel(idx) {
 }
 function deleteFuel(idx) { state.fuel.splice(idx,1); saveState(); closeModal(); renderFuel(); renderCalendar(); }
 
+/* ===================== GIST CLOUD BACKUP =====================
+   Auto-backs up state to a private GitHub Gist on every save.
+   The token lives only in this browser's localStorage and is sent
+   directly to api.github.com -- it never touches any third-party
+   server. Scope needed on the token: "gist" only. */
+const GIST_TOKEN_KEY = 'training-log-gist-token';
+const GIST_ID_KEY = 'training-log-gist-id';
+const GIST_FILENAME = 'training-log-backup.json';
+let gistSyncTimer = null;
+
+function getGistConfig() {
+  return { token: localStorage.getItem(GIST_TOKEN_KEY) || '', gistId: localStorage.getItem(GIST_ID_KEY) || '' };
+}
+function setSyncStatus(text, cls) {
+  const el = document.getElementById('gist-sync-status');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'sync-status' + (cls ? ' ' + cls : '');
+}
+function refreshSyncStatusIdle() {
+  const { token, gistId } = getGistConfig();
+  if (!token) { setSyncStatus(''); return; }
+  const last = localStorage.getItem(GIST_ID_KEY + '-last-sync');
+  setSyncStatus(gistId ? ('Backed up' + (last ? ' ' + last : '')) : 'Cloud backup on', 'synced');
+}
+
+// Debounce so rapid edits don't hammer the API -- fires ~2.5s after the last change.
+function scheduleGistSync() {
+  const { token } = getGistConfig();
+  if (!token) return;
+  clearTimeout(gistSyncTimer);
+  setSyncStatus('Syncing\u2026');
+  gistSyncTimer = setTimeout(syncToGist, 2500);
+}
+
+async function syncToGist() {
+  const { token, gistId } = getGistConfig();
+  if (!token) return;
+  try {
+    const body = { description: 'Training log backup (auto-synced)', public: false,
+      files: { [GIST_FILENAME]: { content: JSON.stringify(state, null, 2) } } };
+    const url = gistId ? 'https://api.github.com/gists/' + gistId : 'https://api.github.com/gists';
+    const res = await fetch(url, {
+      method: gistId ? 'PATCH' : 'POST',
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!gistId) localStorage.setItem(GIST_ID_KEY, data.id);
+    const stamp = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    localStorage.setItem(GIST_ID_KEY + '-last-sync', 'at ' + stamp);
+    setSyncStatus('Backed up at ' + stamp, 'synced');
+  } catch (e) {
+    console.warn('Gist sync failed:', e);
+    setSyncStatus('Backup sync failed', 'error');
+  }
+}
+
+async function restoreFromGist() {
+  const { token, gistId } = getGistConfig();
+  if (!token || !gistId) { alert('Connect cloud backup first.'); return; }
+  if (!confirm('This will merge your cloud backup into your current data (same as Import backup). Continue?')) return;
+  try {
+    const res = await fetch('https://api.github.com/gists/' + gistId, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const file = data.files && data.files[GIST_FILENAME];
+    if (!file) throw new Error('Backup file not found in gist');
+    const imp = JSON.parse(file.content);
+    const days = typeof imp.days === 'object' ? imp.days : {};
+    const climbs = Array.isArray(imp.climbs) ? imp.climbs : [];
+    const cardio = Array.isArray(imp.cardio) ? imp.cardio : [];
+    const fuel = Array.isArray(imp.fuel) ? imp.fuel : [];
+    state.days = { ...state.days, ...days };
+    function mergeArr(ex, inc) { const seen = new Set(ex.map(x => JSON.stringify(x))); inc.forEach(x => { const k = JSON.stringify(x); if (!seen.has(k)) { seen.add(k); ex.push(x); } }); return ex; }
+    state.climbs = mergeArr(state.climbs, climbs);
+    state.cardio = mergeArr(state.cardio, cardio);
+    state.fuel = mergeArr(state.fuel, fuel);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderCalendar(); renderClimbs(); renderCardio(); renderFuel(); renderStats();
+    showToast('Restored from cloud backup');
+    closeModal();
+  } catch (e) {
+    console.warn('Gist restore failed:', e);
+    alert('Could not restore from cloud backup: ' + e.message);
+  }
+}
+
+function openGistSettingsModal() {
+  const { token, gistId } = getGistConfig();
+  openModal(
+    '<div class="modal-header"><span class="modal-title">Cloud backup</span>' +
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>' +
+    '<div class="form-row single"><div>' +
+    (token
+      ? '<p style="margin:0 0 10px;font-size:13px">Cloud backup is <strong>on</strong>. Every change auto-saves to a private GitHub Gist' + (gistId ? ' (<a href="https://gist.github.com/' + esc(gistId) + '" target="_blank" rel="noopener">view gist</a>)' : '') + '.</p>' +
+        '<button class="btn btn-sm" onclick="restoreFromGist()">Restore latest from cloud</button> ' +
+        '<button class="btn btn-sm btn-danger" onclick="disconnectGist()">Disconnect</button>'
+      : '<p style="margin:0 0 10px;font-size:13px">Paste a GitHub personal access token with just the <strong>gist</strong> scope. It\'s stored only in this browser and sent directly to api.github.com to auto-save a private backup Gist on every change.</p>' +
+        '<p style="margin:0 0 10px;font-size:13px">Create one at <a href="https://github.com/settings/tokens/new?scopes=gist&description=Training%20log%20backup" target="_blank" rel="noopener">github.com/settings/tokens/new</a> (select only the "gist" checkbox), then paste it below.</p>' +
+        '<label>Personal access token</label><input type="password" id="gist-token-input" placeholder="ghp_...">' +
+        '<div class="modal-footer"><div></div><button class="btn btn-sm btn-accent" onclick="connectGist()">Connect</button></div>') +
+    '</div></div>');
+}
+function connectGist() {
+  const val = document.getElementById('gist-token-input').value.trim();
+  if (!val) return;
+  localStorage.setItem(GIST_TOKEN_KEY, val);
+  closeModal();
+  setSyncStatus('Connecting\u2026');
+  syncToGist().then(() => showToast('Cloud backup connected'));
+}
+function disconnectGist() {
+  if (!confirm('Stop auto-syncing to the cloud? Your existing gist backup will remain on GitHub until you delete it manually.')) return;
+  localStorage.removeItem(GIST_TOKEN_KEY);
+  localStorage.removeItem(GIST_ID_KEY);
+  localStorage.removeItem(GIST_ID_KEY + '-last-sync');
+  setSyncStatus('');
+  closeModal();
+  showToast('Cloud backup disconnected');
+}
+
 /* BACKUP */
 function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1';
@@ -570,14 +730,18 @@ function importData(event) {
 }
 
 
-// Bootstrap historical data from data/seed-data.json on first load (if storage is empty).
-// This only seeds the app once; after that, all data lives in localStorage and
-// edits/imports are never overwritten by the seed file.
+// Bootstrap historical data from data/seed-data.json on first load ONLY.
+// A persistent flag guards this so it truly runs once, even if seed-data.json's
+// shape changes across deploys (the old merge-every-load approach silently
+// re-added entries as "new" whenever the seed file's serialization differed
+// even slightly from what was already merged in, causing duplicates).
+const SEEDED_FLAG_KEY = 'training-log-seeded-v1';
 async function bootstrapSeedData() {
   try {
+    if (localStorage.getItem(SEEDED_FLAG_KEY)) return; // already seeded, never touch again
     const existing = localStorage.getItem(STORAGE_KEY);
     const res = await fetch('data/seed-data.json');
-    if (!res.ok) return; // no seed file present, fine
+    if (!res.ok) { localStorage.setItem(SEEDED_FLAG_KEY, '1'); return; } // no seed file present, fine
     const seed = await res.json();
     if (!existing) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
@@ -598,6 +762,7 @@ async function bootstrapSeedData() {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }
+    localStorage.setItem(SEEDED_FLAG_KEY, '1');
   } catch (e) {
     console.warn('Seed data bootstrap skipped:', e);
   }
