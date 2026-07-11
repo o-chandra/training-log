@@ -62,10 +62,10 @@
       --warning-bg: rgba(69,26,3,0.9);
       --warning-border: #78350f;
       --warning-text: #fcd34d;
-      --vibe-great:   #274e13;   --vibe-great-b: #6aa84f;  --vibe-great-t: #d9ead3;
-      --vibe-good:    #38761d;   --vibe-good-b: #6aa84f;   --vibe-good-t: #d9ead3;
+      --vibe-great:   #38761d;   --vibe-great-b: #6aa84f;  --vibe-great-t: #d9ead3;
+      --vibe-good:    #274e13;   --vibe-good-b: #6aa84f;   --vibe-good-t: #d9ead3;
       --vibe-medium:  #7f6000;   --vibe-medium-b: #bf9000; --vibe-medium-t: #fff2cc;
-      --vibe-bad:     #660000;   --vibe-bad-b: #cc4125;    --vibe-bad-t: #f4cccc;
+      --vibe-bad:     #5c2b2b;   --vibe-bad-b: #a3564a;    --vibe-bad-t: #f0d9d5;
     }
   }
 
@@ -141,6 +141,8 @@
   .pill-climb, .pill-sport, .pill-alpine { background: var(--accent-bg); color: var(--accent-text); }
   .pill-boulder { background: var(--pro-bg); color: var(--pro-text); }
   .pill-trad { background: var(--warning-bg); color: var(--warning-text); }
+  .pill-strength { background: var(--pro-bg); color: var(--pro-text); }
+  .pill-strength-area { background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border); }
   .pill-cardio, .pill-run, .pill-hike, .pill-trail { background: var(--success-bg); color: var(--success-text); }
   .pill-fuel { background: var(--danger-bg); color: var(--danger-text); }
   .pill-rest { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); }
@@ -184,6 +186,7 @@
   .cell-badge { font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 4px; line-height: 1.5; }
   .cb-climb   { background: var(--accent-bg);   color: var(--accent-text); }
   .cb-cardio  { background: var(--success-bg);  color: var(--success-text); }
+  .cb-strength{ background: var(--pro-bg);      color: var(--pro-text); }
   .cb-fuel    { background: var(--danger-bg);   color: var(--danger-text); }
 
   .day-content { font-size: 11px; color: var(--text); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

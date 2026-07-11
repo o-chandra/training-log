@@ -26,6 +26,7 @@
     <button class="tab active" onclick="showTab('weekly',this)">Weekly log</button>
     <button class="tab" onclick="showTab('climbs',this)">Climbs</button>
     <button class="tab" onclick="showTab('cardio',this)">Cardio</button>
+    <button class="tab" onclick="showTab('strength',this)">Strength/Stretch</button>
     <button class="tab" onclick="showTab('fuel',this)">Fuel &amp; gear</button>
     <button class="tab" onclick="showTab('stats',this)">Stats</button>
   </div>
@@ -39,10 +40,7 @@
         <button class="btn-toggle active" id="toggle-week" onclick="setView('week')">Week</button>
         <button class="btn-toggle" id="toggle-month" onclick="setView('month')">Month</button>
       </div>
-      <div class="log-btn-group" style="margin-left:auto">
-        <button class="btn btn-sm btn-accent" onclick="openDayModal(null)">+ Log day</button>
-        <button class="btn btn-sm btn-accent" onclick="openActivityChoiceModal()">+ Log activity</button>
-      </div>
+      <button class="btn btn-sm btn-accent" onclick="openLogChoiceModal()" style="margin-left:auto">+ Log day</button>
     </div>
     <div class="legend">
       <span style="font-size:12px;color:var(--text);font-weight:600">Vibe:</span>
@@ -62,7 +60,6 @@
         <option value="boulder">Boulder</option>
         <option value="sport">Sport</option>
         <option value="trad">Trad</option>
-        <option value="alpine">Alpine</option>
       </select>
       <select id="climb-venue-filter" onchange="renderClimbs()" style="font-size:13px;padding:5px 10px;width:auto">
         <option value="all">Indoor + outdoor</option>
@@ -79,6 +76,13 @@
       <button class="btn btn-sm btn-accent" onclick="openCardioModal(null)" style="margin-left:auto">+ Log activity</button>
     </div>
     <div id="cardio-list"></div>
+  </div>
+
+  <div id="strength" class="section">
+    <div class="filter-row">
+      <button class="btn btn-sm btn-accent" onclick="openStrengthModal(null)" style="margin-left:auto">+ Log session</button>
+    </div>
+    <div id="strength-list"></div>
   </div>
 
   <div id="fuel" class="section">

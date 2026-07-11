@@ -3,67 +3,91 @@ const STORAGE_KEY = 'training-log-v1';
 // Grade catalog used to populate dropdowns and group pitch counts.
 // No points/weighting anymore -- this is purely a list of selectable grades per category+venue.
 const CLIMB_GRADES = [
-  {k:'Indoor v0-v2',cat:'boulder',venue:'indoor'},
-  {k:'Indoor v3-v4',cat:'boulder',venue:'indoor'},
-  {k:'Indoor v5-v6',cat:'boulder',venue:'indoor'},
-  {k:'Indoor >=v7',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V0',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V1',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V2',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V3',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V4',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V5',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V6',cat:'boulder',venue:'indoor'},
+  {k:'Indoor V7',cat:'boulder',venue:'indoor'},
+  {k:'Indoor \u2265V8',cat:'boulder',venue:'indoor'},
   {k:'Indoor 5.9',cat:'sport',venue:'indoor'},
   {k:'Indoor 5.10',cat:'sport',venue:'indoor'},
   {k:'Indoor 5.11',cat:'sport',venue:'indoor'},
   {k:'Indoor 5.12',cat:'sport',venue:'indoor'},
-  {k:'Sport \u22645.9',cat:'sport',venue:'outdoor'},
+  {k:'Sport \u22645.6',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.7',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.8',cat:'sport',venue:'outdoor'},
+  {k:'Sport 5.9',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.10a/b',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.10c/d',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.11a/b',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.11c/d',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.12a/b',cat:'sport',venue:'outdoor'},
   {k:'Sport 5.12c/d',cat:'sport',venue:'outdoor'},
+  {k:'Sport \u22655.13a',cat:'sport',venue:'outdoor'},
   {k:'Trad \u22645.6',cat:'trad',venue:'outdoor'},
-  {k:'Trad 5.7-5.8',cat:'trad',venue:'outdoor'},
-  {k:'Trad \u22645.9',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.7',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.8',cat:'trad',venue:'outdoor'},
+  {k:'Trad 5.9',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.10a/b',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.10c/d',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.11a/b',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.11c/d',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.12a/b',cat:'trad',venue:'outdoor'},
   {k:'Trad 5.12c/d',cat:'trad',venue:'outdoor'},
-  {k:'Alpine \u22645.6',cat:'alpine',venue:'outdoor'},
-  {k:'Alpine 5.7-5.9',cat:'alpine',venue:'outdoor'},
-  {k:'Alpine 5.10+',cat:'alpine',venue:'outdoor'},
+  {k:'Trad \u22655.13a',cat:'trad',venue:'outdoor'},
 ];
 
-let state = {days:{}, climbs:[], cardio:[], fuel:[]};
+let state = {days:{}, climbs:[], cardio:[], fuel:[], strength:[]};
 let currentWeekStart = getMonday(new Date());
 let currentMonthDate = new Date();
 let calView = 'week';
 
 function loadState() {
   try { const r=localStorage.getItem(STORAGE_KEY); if(r) state=JSON.parse(r); } catch(e){}
+  state.strength = state.strength || []; // backfill for states saved before this field existed
   dedupeState();
-  renderCalendar(); renderClimbs(); renderCardio(); renderFuel(); renderStats();
+  renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
   refreshSyncStatusIdle();
 }
 function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); } catch(e){} scheduleGistSync(); }
 
 // Removes exact-duplicate entries (e.g. from the old re-merge-every-load bug).
 // Runs automatically on every load -- cheap, and harmless once data is clean.
-function dedupeArr(arr) {
+// Content-aware dedup: compares only the meaningful fields for each entry
+// type, so legacy cruft (like the old "points" field, or differing key
+// order) doesn't prevent a real duplicate from being caught.
+function cardioKey(c) { return ['date','actType','objective','miles','vert','time','terrain','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0'); }
+function climbKey(c) { return ['date','venue','climbType','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0') + '|' + JSON.stringify(c.rows||[]); }
+function fuelKey(f) { return ['date','objective','food','gear','notes'].map(k=>f[k]||'').join('|'); }
+function strengthKey(s) { return ['date','kind','area','time','notes'].map(k=>s[k]||'').join('|'); }
+
+function dedupeArr(arr, keyFn) {
   const seen = new Set(); const out = []; let removed = 0;
   for (const item of arr) {
-    const k = JSON.stringify(item);
+    const k = keyFn(item);
     if (seen.has(k)) { removed++; continue; }
     seen.add(k); out.push(item);
   }
   return { out, removed };
 }
+
 function dedupeState() {
-  const c = dedupeArr(state.climbs), ca = dedupeArr(state.cardio), f = dedupeArr(state.fuel);
-  const total = c.removed + ca.removed + f.removed;
-  if (total > 0) {
-    state.climbs = c.out; state.cardio = ca.out; state.fuel = f.out;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
-    showToast('Cleaned up ' + total + ' duplicate ' + (total===1?'entry':'entries'));
-  }
+  // Strip legacy "points" field left over from the old points-based system
+  // before comparing, so it can't mask an otherwise-identical duplicate.
+  state.climbs.forEach(c => { delete c.points; });
+  state.cardio.forEach(c => { delete c.points; });
+
+  const c = dedupeArr(state.climbs, climbKey);
+  const ca = dedupeArr(state.cardio, cardioKey);
+  const f = dedupeArr(state.fuel, fuelKey);
+  const s = dedupeArr(state.strength, strengthKey);
+  const total = c.removed + ca.removed + f.removed + s.removed;
+  state.climbs = c.out; state.cardio = ca.out; state.fuel = f.out; state.strength = s.out;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+  if (total > 0) showToast('Cleaned up ' + total + ' duplicate ' + (total===1?'entry':'entries'));
   return total;
 }
 
@@ -88,6 +112,7 @@ function showTab(id,btn) {
   document.getElementById(id).classList.add('active'); btn.classList.add('active');
   if(id==='climbs') renderClimbs();
   if(id==='cardio') renderCardio();
+  if(id==='strength') renderStrength();
   if(id==='fuel') renderFuel();
   if(id==='stats') renderStats();
 }
@@ -113,10 +138,12 @@ function renderCalendar() {
 function cellBadges(dateISO) {
   const hasClimb = state.climbs.some(c=>c.date===dateISO);
   const hasCardio = state.cardio.some(c=>c.date===dateISO);
+  const hasStrength = state.strength.some(s=>s.date===dateISO);
   const hasFuel   = state.fuel.some(f=>f.date===dateISO);
   let b='';
   if(hasClimb)  b+='<span class="cell-badge cb-climb">climb</span>';
   if(hasCardio) b+='<span class="cell-badge cb-cardio">cardio</span>';
+  if(hasStrength) b+='<span class="cell-badge cb-strength">strength</span>';
   if(hasFuel)   b+='<span class="cell-badge cb-fuel">fuel</span>';
   return b ? '<div class="cell-badges">'+b+'</div>' : '';
 }
@@ -195,10 +222,11 @@ function climbPitchCount(c) {
 function renderPeriodStats(isos, label) {
   const pC=state.climbs.filter(c=>isos.includes(c.date));
   const pA=state.cardio.filter(c=>isos.includes(c.date));
+  const pS=state.strength.filter(s=>isos.includes(s.date));
   const pitches=pC.reduce((s,c)=>s+climbPitchCount(c),0);
   const mi=pA.reduce((s,c)=>s+(parseFloat(c.miles)||0),0);
   const vt=pA.reduce((s,c)=>s+(parseFloat(c.vert)||0),0);
-  const sessions=pC.length+pA.length;
+  const sessions=pC.length+pA.length+pS.length;
   document.getElementById('period-stats').innerHTML=
     '<div class="stat-grid" style="margin-top:0.5rem">'+
     '<div class="stat-card"><div class="stat-val">'+pitches+'</div><div class="stat-label">'+label+' pitches/problems</div></div>'+
@@ -218,6 +246,7 @@ function renderClimbs() {
     const pitchCount=climbPitchCount(c);
     return '<div class="log-entry" onclick="openClimbModal('+c._i+')">'+
       '<div class="entry-header"><span class="pill pill-'+esc(c.climbType||'climb')+'">'+esc(c.venue||'')+' '+esc(c.climbType||'')+'</span>'+
+      (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
       '<span class="entry-date">'+fmtDisplay(c.date)+'</span>'+
       (pitchCount?'<span class="entry-pts">'+pitchCount+' pitches</span>':'')+'</div>'+
       '<div class="entry-detail">'+esc(rows)+(c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>';
@@ -230,6 +259,7 @@ function renderCardio() {
   if(!sorted.length){el.innerHTML='<div class="empty-state">No activities logged yet</div>';return;}
   el.innerHTML=sorted.map(c=>'<div class="log-entry" onclick="openCardioModal('+c._i+')">'+
     '<div class="entry-header"><span class="pill pill-cardio">'+esc(c.actType||'cardio')+'</span>'+
+    (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
     '<span class="entry-date">'+fmtDisplay(c.date)+'</span></div>'+
     '<div class="entry-detail">'+(c.objective?'<strong>'+esc(c.objective)+'</strong> \u00b7 ':'')+
     (c.miles?c.miles+' mi':'')+(c.vert?' \u00b7 '+Number(c.vert).toLocaleString()+' ft vert':'')+(c.time?' \u00b7 '+c.time+' hrs':'')+
@@ -328,7 +358,6 @@ function renderPitchBreakdown() {
       '<option value="boulder"'+(statsFilter.type==='boulder'?' selected':'')+'>Boulder</option>'+
       '<option value="sport"'+(statsFilter.type==='sport'?' selected':'')+'>Sport</option>'+
       '<option value="trad"'+(statsFilter.type==='trad'?' selected':'')+'>Trad</option>'+
-      '<option value="alpine"'+(statsFilter.type==='alpine'?' selected':'')+'>Alpine</option>'+
     '</select>'+
     '</div>';
 
@@ -366,16 +395,20 @@ function getSelectedTag(groupId) {
   const el=document.getElementById(groupId)?.querySelector('.tag.selected,.vibe-tag.selected');
   return el?.dataset.val||el?.textContent.trim()||'';
 }
+/* Standalone (non-exclusive) toggle, used for the Alpine tag */
+function toggleSoloTag(el) { el.classList.toggle('selected'); }
 
 /* DAY MODAL */
-/* Small chooser shown by "+ Log activity" -- picks which modal to open */
-function openActivityChoiceModal() {
+/* Chooser shown by "+ Log day" -- picks climb, cardio, or a plain rest-day/notes entry */
+function openLogChoiceModal() {
   openModal(
-    '<div class="modal-header"><span class="modal-title">Log activity</span>' +
+    '<div class="modal-header"><span class="modal-title">Log</span>' +
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>' +
     '<div class="form-row single"><div style="display:flex;flex-direction:column;gap:8px">' +
     '<button class="btn btn-accent" onclick="openClimbModal(null)">Climb session</button>' +
     '<button class="btn btn-accent" onclick="openCardioModal(null)">Cardio activity</button>' +
+    '<button class="btn btn-accent" onclick="openStrengthModal(null)">Strength / Stretch</button>' +
+    '<button class="btn btn-accent" onclick="openDayModal(null)">Rest day / notes</button>' +
     '</div></div>');
 }
 
@@ -442,8 +475,10 @@ function openClimbModal(idx) {
     '<button class="tag'+(ct==='boulder'?' selected':'')+'" onclick="selTag(this,\'climb-type-tags\');refreshClimbGrades()">Boulder</button>'+
     '<button class="tag'+(ct==='sport'?' selected':'')+'" onclick="selTag(this,\'climb-type-tags\');refreshClimbGrades()">Sport</button>'+
     '<button class="tag'+(ct==='trad'?' selected':'')+'" onclick="selTag(this,\'climb-type-tags\');refreshClimbGrades()">Trad</button>'+
-    '<button class="tag'+(ct==='alpine'?' selected':'')+'" onclick="selTag(this,\'climb-type-tags\');refreshClimbGrades()">Alpine</button>'+
     '</div></div>'+
+    '<div id="climb-alpine-wrap" style="margin-bottom:12px'+(ct==='boulder'?';display:none':'')+'">'+
+    '<button class="tag'+(c.alpine?' selected':'')+'" id="climb-alpine-tag" onclick="toggleSoloTag(this)">Alpine</button>'+
+    '</div>'+
     '<div class="section-divider">Pitches / problems</div>'+
     '<div id="climb-subrows">'+rowsHtml+'</div>'+
     '<button class="add-row-btn" onclick="addClimbRow()">+ Add grade</button>'+
@@ -458,6 +493,8 @@ function refreshClimbGrades() {
   document.querySelectorAll('#climb-subrows .subrow').forEach(row=>{
     row.querySelector('select').innerHTML=climbGradeOpts(ct,venue);
   });
+  const alpineWrap=document.getElementById('climb-alpine-wrap');
+  if(alpineWrap) alpineWrap.style.display = ct==='boulder' ? 'none' : '';
 }
 function addClimbRow() {
   const venue=document.getElementById('m-venue')?.value||'indoor';
@@ -472,6 +509,7 @@ function saveClimb(idx) {
   const date=document.getElementById('m-date').value;
   const venue=document.getElementById('m-venue').value;
   const ct=getSelectedTag('climb-type-tags').toLowerCase()||'boulder';
+  const alpine=document.getElementById('climb-alpine-tag')?.classList.contains('selected')&&ct!=='boulder';
   const notes=document.getElementById('m-notes').value;
   const rows=[];
   document.querySelectorAll('#climb-subrows .subrow').forEach(row=>{
@@ -480,7 +518,7 @@ function saveClimb(idx) {
     const grade=sel?.value||'';
     if(count>0 && grade){rows.push({grade,count});}
   });
-  const entry={date,venue,climbType:ct,rows,notes};
+  const entry={date,venue,climbType:ct,alpine,rows,notes};
   if(idx>=0) state.climbs[idx]=entry; else state.climbs.push(entry);
   saveState(); closeModal(); renderClimbs(); renderCalendar(); renderStats();
 }
@@ -497,8 +535,11 @@ function openCardioModal(idx) {
     '<div class="form-row">'+
     '<div><label>Date</label><input type="date" id="m-date" value="'+(c.date||fmtISO(new Date()))+'"></div>'+
     '<div><label>Activity type</label><select id="m-acttype">'+
-    ['run','trail run','hike','scramble','alpine','bike'].map(t=>'<option value="'+t+'"'+(c.actType===t?' selected':'')+'>'+t+'</option>').join('')+
+    ['run','trail run','hike','scramble','bike'].map(t=>'<option value="'+t+'"'+(c.actType===t?' selected':'')+'>'+t+'</option>').join('')+
     '</select></div></div>'+
+    '<div style="margin-bottom:12px">'+
+    '<button class="tag'+(c.alpine?' selected':'')+'" id="cardio-alpine-tag" onclick="toggleSoloTag(this)">Alpine</button>'+
+    '</div>'+
     '<div class="form-row single"><div><label>Objective / route</label><input type="text" id="m-objective" value="'+esc(c.objective||'')+'" placeholder="e.g. Green Mountain, Anenome loop"></div></div>'+
     '<div class="form-row three">'+
     '<div><label>Miles</label><input type="number" id="m-miles" step="0.1" min="0" value="'+esc(c.miles||'')+'" placeholder="0.0"></div>'+
@@ -519,6 +560,7 @@ function openCardioModal(idx) {
 function saveCardio(idx) {
   const date=document.getElementById('m-date').value;
   const actType=document.getElementById('m-acttype').value;
+  const alpine=document.getElementById('cardio-alpine-tag')?.classList.contains('selected');
   const objective=document.getElementById('m-objective').value;
   const miles=document.getElementById('m-miles').value;
   const vert=document.getElementById('m-vert').value;
@@ -526,11 +568,70 @@ function saveCardio(idx) {
   const notes=document.getElementById('m-notes').value;
   const tt=getSelectedTag('terrain-tags').toLowerCase();
   const terrain=tt==='weighted (pack)'?'weighted':(tt||'trail');
-  const entry={date,actType,objective,miles,vert,time,notes,terrain};
+  const entry={date,actType,alpine,objective,miles,vert,time,notes,terrain};
   if(idx>=0) state.cardio[idx]=entry; else state.cardio.push(entry);
   saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats();
 }
 function deleteCardio(idx) { state.cardio.splice(idx,1); saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats(); }
+
+/* STRENGTH / PT MODAL */
+function openStrengthModal(idx) {
+  const editing=idx!==null&&idx!==undefined&&idx>=0;
+  const s=editing?state.strength[idx]:{};
+  const area=s.area||'upper';
+  const kind=s.kind||'strength';
+  openModal(
+    '<div class="modal-header"><span class="modal-title">'+(editing?'Edit session':'Log a session')+'</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Kind</label>'+
+    '<div class="tag-row" id="strength-kind-tags">'+
+    '<button class="tag'+(kind==='strength'?' selected':'')+'" data-val="strength" onclick="selTag(this,\'strength-kind-tags\');refreshStrengthFields()">Strength</button>'+
+    '<button class="tag'+(kind==='stretch'?' selected':'')+'" data-val="stretch" onclick="selTag(this,\'strength-kind-tags\');refreshStrengthFields()">Stretch</button>'+
+    '</div></div>'+
+    '<div class="form-row">'+
+    '<div><label>Date</label><input type="date" id="m-date" value="'+(s.date||fmtISO(new Date()))+'"></div>'+
+    '<div id="strength-time-wrap" style="'+(kind==='stretch'?'display:none':'')+'"><label>Time (hrs)</label><input type="number" id="m-time" step="0.1" min="0" value="'+esc(s.time||'')+'" placeholder="0.0"></div></div>'+
+    '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Focus area</label>'+
+    '<div class="tag-row" id="strength-area-tags">'+
+    '<button class="tag'+(area==='upper'?' selected':'')+'" data-val="upper" onclick="selTag(this,\'strength-area-tags\')">Upper body</button>'+
+    '<button class="tag'+(area==='lower'?' selected':'')+'" data-val="lower" onclick="selTag(this,\'strength-area-tags\')">Lower body</button>'+
+    '<button class="tag'+(area==='wrist'?' selected':'')+'" data-val="wrist" onclick="selTag(this,\'strength-area-tags\')">Wrist/fingers</button>'+
+    '</div></div>'+
+    '<div class="form-row single"><div><label>Notes</label><textarea id="m-notes" placeholder="Exercises, sets/reps, how it felt...">'+esc(s.notes||'')+'</textarea></div></div>'+
+    '<div class="modal-footer"><div class="modal-footer-left">'+
+    (editing?'<button class="btn btn-sm btn-danger" onclick="deleteStrength('+idx+')">Delete</button>':'')+
+    '</div><button class="btn btn-sm btn-accent" onclick="saveStrength('+(editing?idx:-1)+')">Save session</button></div>');
+}
+function refreshStrengthFields() {
+  const kind=getSelectedTag('strength-kind-tags')||'strength';
+  const timeWrap=document.getElementById('strength-time-wrap');
+  if(timeWrap) timeWrap.style.display = kind==='stretch' ? 'none' : '';
+}
+function saveStrength(idx) {
+  const date=document.getElementById('m-date').value;
+  const kind=getSelectedTag('strength-kind-tags')||'strength';
+  const time=kind==='stretch'?'':document.getElementById('m-time').value;
+  const area=getSelectedTag('strength-area-tags')||'upper';
+  const notes=document.getElementById('m-notes').value;
+  const entry={date,kind,area,time,notes};
+  if(idx>=0) state.strength[idx]=entry; else state.strength.push(entry);
+  saveState(); closeModal(); renderStrength(); renderCalendar(); renderStats();
+}
+function deleteStrength(idx) { state.strength.splice(idx,1); saveState(); closeModal(); renderStrength(); renderCalendar(); renderStats(); }
+function strengthAreaLabel(area) { return area==='upper'?'Upper body':area==='lower'?'Lower body':area==='wrist'?'Wrist/fingers':area; }
+function strengthKindLabel(kind) { return kind==='stretch'?'Stretch':'Strength'; }
+function renderStrength() {
+  const sorted=state.strength.map((s,i)=>({...s,_i:i})).sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('strength-list');
+  if(!el) return;
+  if(!sorted.length){el.innerHTML='<div class="empty-state">No strength/stretch sessions logged yet</div>';return;}
+  el.innerHTML=sorted.map(s=>'<div class="log-entry" onclick="openStrengthModal('+s._i+')">'+
+    '<div class="entry-header"><span class="pill pill-strength">'+esc(strengthKindLabel(s.kind))+'</span>'+
+    '<span class="pill pill-strength-area">'+esc(strengthAreaLabel(s.area))+'</span>'+
+    '<span class="entry-date">'+fmtDisplay(s.date)+'</span>'+
+    (s.time?'<span class="entry-pts">'+s.time+' hrs</span>':'')+'</div>'+
+    (s.notes?'<div class="entry-detail"><span class="entry-note">'+esc(s.notes)+'</span></div>':'')+'</div>').join('');
+}
 
 /* FUEL MODAL */
 function openFuelModal(idx) {
@@ -640,13 +741,15 @@ async function restoreFromGist() {
     const climbs = Array.isArray(imp.climbs) ? imp.climbs : [];
     const cardio = Array.isArray(imp.cardio) ? imp.cardio : [];
     const fuel = Array.isArray(imp.fuel) ? imp.fuel : [];
+    const strength = Array.isArray(imp.strength) ? imp.strength : [];
     state.days = { ...state.days, ...days };
     function mergeArr(ex, inc) { const seen = new Set(ex.map(x => JSON.stringify(x))); inc.forEach(x => { const k = JSON.stringify(x); if (!seen.has(k)) { seen.add(k); ex.push(x); } }); return ex; }
     state.climbs = mergeArr(state.climbs, climbs);
     state.cardio = mergeArr(state.cardio, cardio);
     state.fuel = mergeArr(state.fuel, fuel);
+    state.strength = mergeArr(state.strength, strength);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    renderCalendar(); renderClimbs(); renderCardio(); renderFuel(); renderStats();
+    renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
     showToast('Restored from cloud backup');
     closeModal();
   } catch (e) {
@@ -713,15 +816,17 @@ function importData(event) {
       const climbs=Array.isArray(imp.climbs)?imp.climbs:[];
       const cardio=Array.isArray(imp.cardio)?imp.cardio:[];
       const fuel=Array.isArray(imp.fuel)?imp.fuel:[];
-      const existing=Object.keys(state.days).length+state.climbs.length+state.cardio.length+state.fuel.length;
+      const strength=Array.isArray(imp.strength)?imp.strength:[];
+      const existing=Object.keys(state.days).length+state.climbs.length+state.cardio.length+state.fuel.length+state.strength.length;
       if(existing>0&&!confirm('This will merge the backup with your current data. Continue?')){event.target.value='';return;}
       state.days={...state.days,...days};
       function mergeArr(ex,inc){const seen=new Set(ex.map(x=>JSON.stringify(x)));inc.forEach(x=>{const k=JSON.stringify(x);if(!seen.has(k)){seen.add(k);ex.push(x);}});return ex;}
       state.climbs=mergeArr(state.climbs,climbs);
       state.cardio=mergeArr(state.cardio,cardio);
       state.fuel=mergeArr(state.fuel,fuel);
+      state.strength=mergeArr(state.strength,strength);
       saveState();
-      renderCalendar(); renderClimbs(); renderCardio(); renderFuel(); renderStats();
+      renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
       showToast('Backup imported successfully');
     } catch(err){ alert('That file doesn\'t look like a valid training log backup.'); }
     event.target.value='';
@@ -759,6 +864,7 @@ async function bootstrapSeedData() {
         climbs: mergeArr(cur.climbs || [], seed.climbs || []),
         cardio: mergeArr(cur.cardio || [], seed.cardio || []),
         fuel: mergeArr(cur.fuel || [], seed.fuel || []),
+        strength: mergeArr(cur.strength || [], seed.strength || []),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }
