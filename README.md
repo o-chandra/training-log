@@ -17,7 +17,7 @@ training-log/
 ├── js/
 │   └── app.js          # All app logic (state, rendering, modals)
 ├── data/
-│   └── seed-data.json  # One-time historical data import (your spreadsheet history)
+│   └── seed-data.json  # Optional one-time historical data import (git-ignored -- not in the repo, see note below)
 ├── assets/
 │   └── mountain-bg.jpg # Background photo
 └── api/
@@ -56,11 +56,11 @@ That's it — no build process, no dependencies to install.
 
 ## How data persistence works
 
-All your entries (days, climbs, cardio, fuel notes) are saved in your browser's `localStorage` under the key `training-log-v1`. This means:
+All your entries (days, climbs, cardio, strength/stretch, fuel notes) are saved in your browser's `localStorage` under the key `training-log-v1`, and also mirrored to a private GitHub Gist if you've connected Cloud backup (see the "Cloud backup" button in the app). This means:
 
-- Data is **per-browser, per-device**. It won't sync between your phone and laptop automatically.
-- Clearing your browser's site data will erase your log. **Use the Export backup button regularly** to download a JSON snapshot you can keep safe or re-import elsewhere.
-- The `data/seed-data.json` file only seeds the app *once*, on first load with empty storage (or merges in anything new without overwriting your existing entries). It's not a live sync — editing that file won't update an already-seeded browser; use Import backup for that instead.
+- Data is **per-browser, per-device** unless Cloud backup is connected, in which case you can pull it into a new browser/device via "Restore latest from cloud."
+- Clearing your browser's site data will erase your log if Cloud backup isn't connected. **Use the Export backup button regularly** as an additional safety net regardless.
+- `data/seed-data.json` is **git-ignored, not committed to this repo** — it exists only as an optional local file for seeding a brand-new browser with historical data (e.g. from an old spreadsheet). If the file isn't present, the app just starts empty and that's fine. This was changed so a public/shared repo doesn't expose your actual training history in git; your real data lives in `localStorage` and your private Gist backup instead.
 
 ## Strava integration (in progress)
 

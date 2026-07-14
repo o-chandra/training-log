@@ -11,5 +11,10 @@ Thumbs.db
 .env
 .env.local
 
+# Personal training data (contains your actual logged history) --
+# no longer tracked in git so a public repo/clone doesn't expose it.
+# Your browser (localStorage) and Gist cloud backup are the real copies now.
+data/seed-data.json
+
 # Node (if a serverless function setup is added later)
 node_modules/
