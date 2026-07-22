@@ -33,6 +33,7 @@
     --vibe-good:        #d9ead3; --vibe-good-b: #93c47d;   --vibe-good-t: #38761d;
     --vibe-medium:      #fff2cc; --vibe-medium-b: #ffd966; --vibe-medium-t: #bf9000;
     --vibe-bad:         #f4cccc; --vibe-bad-b: #e06666;    --vibe-bad-t: #990000;
+    --heat-0: #ebedf0; --heat-1: #c6e48b; --heat-2: #7bc96f; --heat-3: #239a3b; --heat-4: #196127;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -66,17 +67,97 @@
       --vibe-good:    #274e13;   --vibe-good-b: #6aa84f;   --vibe-good-t: #d9ead3;
       --vibe-medium:  #7f6000;   --vibe-medium-b: #bf9000; --vibe-medium-t: #fff2cc;
       --vibe-bad:     #5c2b2b;   --vibe-bad-b: #a3564a;    --vibe-bad-t: #f0d9d5;
+      --heat-0: #2a2a28; --heat-1: #0e4429; --heat-2: #006d32; --heat-3: #26a641; --heat-4: #39d353;
     }
+  }
+
+  /* Explicit theme override (set via the Light/Dark toggle in the UI).
+     Higher specificity than plain :root, so it wins over both the default
+     light values above and the prefers-color-scheme media query. When no
+     data-theme attribute is present, the OS preference above still applies. */
+  :root[data-theme="light"] {
+    --bg: #f9f9f8;
+    --surface: #ffffff;
+    --surface-raised: #f3f3f1;
+    --surface-solid: #ffffff;
+    --border: rgba(0,0,0,0.15);
+    --border-strong: rgba(0,0,0,0.28);
+    --text: #0f0f0e;
+    --text-secondary: #2a2a28;
+    --text-muted: #3a3a38;
+    --accent: #2563eb;
+    --accent-bg: rgba(219,234,254,0.9);
+    --accent-border: #bfdbfe;
+    --accent-text: #1d4ed8;
+    --success-bg: rgba(220,252,231,0.9);
+    --success-border: #bbf7d0;
+    --success-text: #15803d;
+    --danger: #dc2626;
+    --danger-bg: rgba(254,226,226,0.9);
+    --danger-border: #fecaca;
+    --danger-text: #b91c1c;
+    --pro-bg: rgba(237,233,254,0.9);
+    --pro-border: #ddd6fe;
+    --pro-text: #6d28d9;
+    --warning-bg: rgba(254,249,195,0.9);
+    --warning-border: #fde68a;
+    --warning-text: #854d0e;
+    --vibe-great:       #b6d7a8; --vibe-great-b: #38761d;  --vibe-great-t: #274e13;
+    --vibe-good:        #d9ead3; --vibe-good-b: #93c47d;   --vibe-good-t: #38761d;
+    --vibe-medium:      #fff2cc; --vibe-medium-b: #ffd966; --vibe-medium-t: #bf9000;
+    --vibe-bad:         #f4cccc; --vibe-bad-b: #e06666;    --vibe-bad-t: #990000;
+    --heat-0: #ebedf0; --heat-1: #c6e48b; --heat-2: #7bc96f; --heat-3: #239a3b; --heat-4: #196127;
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1a18;
+    --surface: #242422;
+    --surface-raised: #2e2e2c;
+    --surface-solid: #242422;
+    --border: rgba(255,255,255,0.1);
+    --border-strong: rgba(255,255,255,0.2);
+    --text: #f8f8f6;
+    --text-secondary: #bbbbbb;
+    --text-muted: #3a3a38;
+    --accent: #60a5fa;
+    --accent-bg: rgba(30,58,95,0.9);
+    --accent-border: #1d4ed8;
+    --accent-text: #93c5fd;
+    --success-bg: rgba(20,83,45,0.9);
+    --success-border: #166534;
+    --success-text: #86efac;
+    --danger: #f87171;
+    --danger-bg: rgba(69,10,10,0.9);
+    --danger-border: #7f1d1d;
+    --danger-text: #fca5a5;
+    --pro-bg: rgba(46,16,101,0.9);
+    --pro-border: #4c1d95;
+    --pro-text: #c4b5fd;
+    --warning-bg: rgba(69,26,3,0.9);
+    --warning-border: #78350f;
+    --warning-text: #fcd34d;
+    --vibe-great:   #38761d;   --vibe-great-b: #6aa84f;  --vibe-great-t: #d9ead3;
+    --vibe-good:    #274e13;   --vibe-good-b: #6aa84f;   --vibe-good-t: #d9ead3;
+    --vibe-medium:  #7f6000;   --vibe-medium-b: #bf9000; --vibe-medium-t: #fff2cc;
+    --vibe-bad:     #5c2b2b;   --vibe-bad-b: #a3564a;    --vibe-bad-t: #f0d9d5;
+    --heat-0: #2a2a28; --heat-1: #0e4429; --heat-2: #006d32; --heat-3: #26a641; --heat-4: #39d353;
   }
 
   body { font-family: var(--font); color: var(--text); font-size: 15px; min-height: 100vh; background: var(--bg); }
 
   .hero-bg {
     position: fixed; inset: 0; z-index: 0;
-    background-image: url('../assets/mountain-bg.jpg');
-    background-size: cover; background-position: center 30%;
-    opacity: 0.22; pointer-events: none;
+    opacity: 0.22; pointer-events: none; overflow: hidden;
   }
+  .hero-bg-blur, .hero-bg-fg {
+    position: absolute; inset: 0;
+    background-image: url('../assets/mountain-bg.jpg');
+    background-repeat: no-repeat; background-position: center;
+  }
+  /* Blurred, scaled-up copy fills every edge of the screen regardless of the
+     photo's aspect ratio, so a tall/portrait photo never leaves empty margins. */
+  .hero-bg-blur { background-size: cover; filter: blur(44px) saturate(1.15); transform: scale(1.15); }
+  /* Sharp copy sits on top, fully visible (never cropped) via "contain". */
+  .hero-bg-fg { background-size: contain; }
 
   .app { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 
@@ -90,6 +171,18 @@
   .sync-status.synced { color: #4a9e5c; }
   .sync-status.error { color: #c0392b; }
   #import-input { display: none; }
+
+  .theme-toggle-btn { padding: 5px 10px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-size: 15px; line-height: 1; color: var(--text); font-family: var(--font); }
+  .theme-toggle-btn:hover { background: var(--surface-raised); }
+
+  .bg-picker-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 4px; }
+  .bg-picker-option { border: 2px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; background: var(--surface); padding: 0; position: relative; }
+  .bg-picker-option img { display: block; width: 100%; height: 90px; object-fit: cover; }
+  .bg-picker-option .bg-picker-label { display: block; font-size: 12px; padding: 5px 7px; color: var(--text); background: var(--surface); text-align: left; }
+  .bg-picker-option.selected { border-color: var(--accent); }
+  .bg-picker-option.selected .bg-picker-label { color: var(--accent-text); font-weight: 600; }
+  .bg-picker-option:hover { border-color: var(--border-strong); }
+  @media (max-width: 420px) { .bg-picker-grid { grid-template-columns: 1fr 1fr; } }
 
   .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
   .tab { padding: 8px 16px; font-size: 14px; cursor: pointer; color: var(--text); border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-family: var(--font); }
@@ -249,3 +342,91 @@
     .form-row.three { grid-template-columns: 1fr 1fr; }
     .month-cell { min-height: 50px; }
   }
+
+  /* ===================== PLAN MODE ===================== */
+
+  /* month grid, plan mode: same cell shell, dashed border + accent tint when a plan exists */
+  .month-cell.plan-cell { border-style: dashed; }
+  .month-cell.plan-cell.plan-done { border-style: solid; background: var(--success-bg); border-color: var(--success-border); }
+  .plan-check { position: absolute; top: 6px; right: 6px; font-size: 11px; font-weight: 700; color: var(--success-text); }
+  .month-cell.plan-cell { position: relative; }
+
+  /* weekly plan checklist */
+  .plan-week-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1rem; }
+  .plan-day-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  }
+  .plan-day-card.plan-today { border-color: var(--accent-border); }
+  .plan-day-card.plan-done { background: var(--success-bg); border-color: var(--success-border); }
+  .plan-checkbox-wrap { display: flex; align-items: center; padding-top: 3px; cursor: pointer; }
+  .plan-checkbox-wrap input[type="checkbox"] { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+  .plan-day-body { flex: 1; min-width: 0; cursor: pointer; }
+  .plan-day-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .plan-day-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text); }
+  .plan-day-date { font-size: 12px; color: var(--text-muted); }
+  .plan-today-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 99px; background: var(--accent-bg); color: var(--accent-text); margin-left: auto; }
+  .plan-day-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .plan-day-title.plan-empty { font-weight: 400; color: var(--text-muted); font-style: italic; }
+  .plan-day-detail { font-size: 13px; color: var(--text); line-height: 1.5; margin-top: 3px; white-space: pre-wrap; }
+  .plan-done .plan-day-title, .plan-done .plan-day-detail { text-decoration: line-through; opacity: 0.7; }
+
+  .plan-modal-done-label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); cursor: pointer; }
+  .plan-modal-done-label input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+
+  /* ===================== MODE SWITCH (Log / Plan) ===================== */
+  .mode-switch { display: flex; gap: 4px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); padding: 4px; margin-bottom: 1rem; }
+  .mode-btn { flex: 1; padding: 10px 16px; font-size: 15px; font-weight: 700; border: none; border-radius: var(--radius); background: none; cursor: pointer; color: var(--text-muted); font-family: var(--font); }
+  .mode-btn.active { background: var(--surface-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+  .mode-btn:not(.active):hover { color: var(--text); }
+
+  /* ===================== BIG GOALS ===================== */
+  .goal-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .goal-card.status-in-progress { border-left-color: var(--accent); }
+  .goal-card.status-done { border-left-color: var(--success-text); opacity: 0.8; }
+  .goal-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; margin-bottom: 4px; }
+  .goal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .goal-card.status-done .goal-title { text-decoration: line-through; }
+  .goal-notes { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 8px; cursor: pointer; white-space: pre-wrap; }
+  .goal-progress-track { background: var(--surface-raised); border-radius: 6px; height: 6px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border); }
+  .goal-progress-bar { background: var(--accent); height: 100%; border-radius: 6px; }
+  .milestone-list { display: flex; flex-direction: column; gap: 5px; }
+  .milestone-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+  .milestone-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .milestone-item.done span { text-decoration: line-through; opacity: 0.6; }
+  .pill-goal-climbing { background: var(--accent-bg); color: var(--accent-text); }
+  .pill-goal-cardio { background: var(--success-bg); color: var(--success-text); }
+  .pill-goal-strength { background: var(--pro-bg); color: var(--pro-text); }
+  .pill-goal-general { background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border); }
+  .pill-cycle { background: var(--pro-bg); color: var(--pro-text); margin-right: 4px; margin-bottom: 2px; }
+  .pill-goal-deadline { background: var(--warning-bg); color: var(--warning-text); margin-right: 4px; margin-bottom: 2px; }
+  .pill-current { background: var(--success-bg); color: var(--success-text); }
+
+  /* ===================== TRAINING CYCLES ===================== */
+  .cycle-card.cycle-current { border-color: var(--accent-border); background: var(--accent-bg); }
+  .cycle-title { font-weight: 600; font-size: 14px; color: var(--text); }
+
+  /* ===================== YEARLY OVERVIEW ===================== */
+  .heatmap-wrap { overflow-x: auto; margin-bottom: 0.5rem; padding-bottom: 4px; }
+  .heatmap-scroll { display: flex; gap: 3px; width: max-content; }
+  .heat-week-col { display: flex; flex-direction: column; gap: 3px; }
+  .heat-month-label { font-size: 10px; color: var(--text-muted); height: 14px; white-space: nowrap; }
+  .heat-week-cells { display: flex; flex-direction: column; gap: 3px; }
+  .heat-cell { width: 11px; height: 11px; border-radius: 2px; background: var(--heat-0); }
+  .heat-cell.heat-empty { background: transparent; }
+  .heat-lvl0 { background: var(--heat-0); }
+  .heat-lvl1 { background: var(--heat-1); }
+  .heat-lvl2 { background: var(--heat-2); }
+  .heat-lvl3 { background: var(--heat-3); }
+  .heat-lvl4 { background: var(--heat-4); }
+  .heat-legend { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-bottom: 1.25rem; }
+  .heat-legend .heat-cell { display: inline-block; }
+
+  .year-month-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 0.5rem; }
+  .year-month-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .year-month-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+  .year-month-stats { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .year-month-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  @media (max-width: 600px) { .year-month-grid { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 420px) { .year-month-grid { grid-template-columns: 1fr; } }

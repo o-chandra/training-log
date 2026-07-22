@@ -8,13 +8,15 @@
 </head>
 <body>
 
-<div class="hero-bg"></div>
+<div class="hero-bg"><div class="hero-bg-blur"></div><div class="hero-bg-fg"></div></div>
 
 <div class="app">
   <div class="top-row">
     <h1>Training log</h1>
     <div class="backup-row">
+      <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light/dark mode">☀️</button>
       <span id="gist-sync-status" class="sync-status"></span>
+      <button class="btn btn-sm" onclick="openBgPickerModal()">Background</button>
       <button class="btn btn-sm" onclick="openGistSettingsModal()">Cloud backup</button>
       <button class="btn btn-sm" onclick="exportData()">Export backup</button>
       <label class="import-label" for="import-input">Import backup</label>
@@ -22,13 +24,26 @@
     </div>
   </div>
 
-  <div class="tabs">
+  <div class="mode-switch">
+    <button class="mode-btn active" id="mode-log-btn" onclick="setMode('log')">Log</button>
+    <button class="mode-btn" id="mode-plan-btn" onclick="setMode('plan')">Plan</button>
+  </div>
+
+  <div class="tabs" id="log-tabs">
     <button class="tab active" onclick="showTab('weekly',this)">Weekly log</button>
     <button class="tab" onclick="showTab('climbs',this)">Climbs</button>
     <button class="tab" onclick="showTab('cardio',this)">Cardio</button>
     <button class="tab" onclick="showTab('strength',this)">Strength/Stretch</button>
     <button class="tab" onclick="showTab('fuel',this)">Fuel &amp; gear</button>
     <button class="tab" onclick="showTab('stats',this)">Stats</button>
+  </div>
+
+  <div class="tabs" id="plan-tabs" style="display:none">
+    <button class="tab" onclick="showTab('goals',this)">Big goals</button>
+    <button class="tab" onclick="showTab('yearly',this)">Yearly overview</button>
+    <button class="tab" onclick="showTab('cycles',this)">Training cycles</button>
+    <button class="tab" onclick="showTab('plan-month',this)">Monthly</button>
+    <button class="tab" onclick="showTab('plan-week',this)">Weekly</button>
   </div>
 
   <div id="weekly" class="section active">
@@ -96,6 +111,56 @@
     <div class="stat-grid" id="stat-grid"></div>
     <div id="stats-breakdown"></div>
     <div id="stats-pitch-breakdown"></div>
+  </div>
+
+  <div id="goals" class="section">
+    <div class="filter-row">
+      <select id="goals-status-filter" onchange="setGoalsFilter()" style="font-size:13px;padding:5px 10px;width:auto">
+        <option value="all">All statuses</option>
+        <option value="not-started">Not started</option>
+        <option value="in-progress">In progress</option>
+        <option value="done">Done</option>
+      </select>
+      <button class="btn btn-sm btn-accent" onclick="openGoalModal(null)" style="margin-left:auto">+ Add goal</button>
+    </div>
+    <div id="goals-list"></div>
+  </div>
+
+  <div id="yearly" class="section">
+    <div class="nav-row">
+      <button class="week-nav" onclick="changeYear(-1)">&#8249;</button>
+      <span id="year-label" class="period-label"></span>
+      <button class="week-nav" onclick="changeYear(1)">&#8250;</button>
+    </div>
+    <div id="yearly-heatmap"></div>
+    <div id="yearly-months"></div>
+  </div>
+
+  <div id="cycles" class="section">
+    <div class="filter-row">
+      <button class="btn btn-sm btn-accent" onclick="openCycleModal(null)" style="margin-left:auto">+ Add cycle</button>
+    </div>
+    <div id="cycles-list"></div>
+  </div>
+
+  <div id="plan-month" class="section">
+    <div class="nav-row">
+      <button class="week-nav" onclick="changePlanMonth(-1)">&#8249;</button>
+      <span id="plan-month-label" class="period-label"></span>
+      <button class="week-nav" onclick="changePlanMonth(1)">&#8250;</button>
+      <button class="btn btn-sm btn-accent" onclick="openPlanModal(null)" style="margin-left:auto">+ Add plan item</button>
+    </div>
+    <div id="plan-month-calendar"></div>
+  </div>
+
+  <div id="plan-week" class="section">
+    <div class="nav-row">
+      <button class="week-nav" onclick="changePlanWeek(-1)">&#8249;</button>
+      <span id="plan-week-label" class="period-label"></span>
+      <button class="week-nav" onclick="changePlanWeek(1)">&#8250;</button>
+      <button class="btn btn-sm btn-accent" onclick="openPlanModal(null)" style="margin-left:auto">+ Add plan item</button>
+    </div>
+    <div id="plan-week-body"></div>
   </div>
 </div>
 

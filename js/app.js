@@ -1,4 +1,70 @@
 const STORAGE_KEY = 'training-log-v1';
+const THEME_KEY = 'training-log-theme-v1';
+const BG_KEY = 'training-log-bg-v1';
+
+// Available hero background images. 'file' is relative to assets/, 'thumb' to assets/thumbs/.
+const BG_OPTIONS = [
+  {id:'diamond',    label:'Diamond',            file:'mountain-bg.jpg'},
+  {id:'el-cap',     label:'El Cap',             file:'diamond.jpg'},
+  {id:'patagonia-1',label:'Patagonia 1',        file:'patagonia-1.jpg'},
+  {id:'patagonia-2',label:'Patagonia 2',        file:'patagonia-2.jpg'},
+];
+
+/* ===================== THEME (light/dark) ===================== */
+function effectiveTheme() {
+  const explicit=document.documentElement.getAttribute('data-theme');
+  if(explicit==='light'||explicit==='dark') return explicit;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function updateThemeToggleIcon() {
+  const btn=document.getElementById('theme-toggle-btn');
+  if(!btn) return;
+  btn.textContent = effectiveTheme()==='dark' ? '\u{1F319}' : '\u2600\uFE0F';
+}
+function initTheme() {
+  let saved;
+  try { saved=localStorage.getItem(THEME_KEY); } catch(e){}
+  if(saved==='light'||saved==='dark') document.documentElement.setAttribute('data-theme',saved);
+  updateThemeToggleIcon();
+}
+function toggleTheme() {
+  const next = effectiveTheme()==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try { localStorage.setItem(THEME_KEY,next); } catch(e){}
+  updateThemeToggleIcon();
+}
+
+/* ===================== BACKGROUND PICKER ===================== */
+function applyBackground(id, persist) {
+  const opt=BG_OPTIONS.find(o=>o.id===id)||BG_OPTIONS[0];
+  const url="url('assets/"+opt.file+"')";
+  const blur=document.querySelector('.hero-bg-blur');
+  const fg=document.querySelector('.hero-bg-fg');
+  if(blur) blur.style.backgroundImage=url;
+  if(fg) fg.style.backgroundImage=url;
+  if(persist!==false){ try { localStorage.setItem(BG_KEY,opt.id); } catch(e){} }
+}
+function initBackground() {
+  let saved;
+  try { saved=localStorage.getItem(BG_KEY); } catch(e){}
+  const opt=BG_OPTIONS.find(o=>o.id===saved)||BG_OPTIONS[0];
+  applyBackground(opt.id,false);
+}
+function openBgPickerModal() {
+  let current;
+  try { current=localStorage.getItem(BG_KEY); } catch(e){}
+  if(!current) current=BG_OPTIONS[0].id;
+  const gridHtml=BG_OPTIONS.map(o=>
+    '<button class="bg-picker-option'+(o.id===current?' selected':'')+'" onclick="selectBackground(\''+o.id+'\')">'+
+    '<img src="assets/thumbs/'+o.file+'" alt="'+esc(o.label)+'">'+
+    '<span class="bg-picker-label">'+esc(o.label)+'</span></button>'
+  ).join('');
+  openModal(
+    '<div class="modal-header"><span class="modal-title">Background</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div class="bg-picker-grid">'+gridHtml+'</div>');
+}
+function selectBackground(id) { applyBackground(id,true); closeModal(); }
 
 // Grade catalog used to populate dropdowns and group pitch counts.
 // No points/weighting anymore -- this is purely a list of selectable grades per category+venue.
@@ -40,16 +106,26 @@ const CLIMB_GRADES = [
   {k:'Trad \u22655.13a',cat:'trad',venue:'outdoor'},
 ];
 
-let state = {days:{}, climbs:[], cardio:[], fuel:[], strength:[]};
+let state = {days:{}, climbs:[], cardio:[], fuel:[], strength:[], plan:{}, goals:[], cycles:[]};
 let currentWeekStart = getMonday(new Date());
 let currentMonthDate = new Date();
 let calView = 'week';
+let appMode = 'log'; // 'log' or 'plan'
+let currentPlanMonthDate = new Date();
+let currentPlanWeekStart = getMonday(new Date());
+let currentYear = new Date().getFullYear();
+
+function genId() { return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
 function loadState() {
   try { const r=localStorage.getItem(STORAGE_KEY); if(r) state=JSON.parse(r); } catch(e){}
   state.strength = state.strength || []; // backfill for states saved before this field existed
+  state.plan = state.plan || {}; // backfill for states saved before the plan feature existed
+  state.goals = state.goals || []; // backfill for states saved before goals existed
+  state.cycles = state.cycles || []; // backfill for states saved before cycles existed
   dedupeState();
   renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
+  renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
   refreshSyncStatusIdle();
 }
 function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); } catch(e){} scheduleGistSync(); }
@@ -140,11 +216,28 @@ function showTab(id,btn) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active'); btn.classList.add('active');
+  if(id==='weekly') renderCalendar();
   if(id==='climbs') renderClimbs();
   if(id==='cardio') renderCardio();
   if(id==='strength') renderStrength();
   if(id==='fuel') renderFuel();
   if(id==='stats') renderStats();
+  if(id==='goals') renderGoals();
+  if(id==='yearly') renderYearly();
+  if(id==='cycles') renderCycles();
+  if(id==='plan-month') renderPlanMonth();
+  if(id==='plan-week') renderPlanWeek();
+}
+
+function setMode(mode) {
+  appMode=mode;
+  document.getElementById('mode-log-btn').classList.toggle('active',mode==='log');
+  document.getElementById('mode-plan-btn').classList.toggle('active',mode==='plan');
+  document.getElementById('log-tabs').style.display = mode==='log' ? '' : 'none';
+  document.getElementById('plan-tabs').style.display = mode==='plan' ? '' : 'none';
+  const tabsEl=document.getElementById(mode==='log'?'log-tabs':'plan-tabs');
+  const firstTab=tabsEl.querySelector('.tab');
+  if(firstTab) firstTab.click();
 }
 
 function setView(v) {
@@ -242,6 +335,75 @@ function renderMonth() {
   html+='</div>';
   document.getElementById('calendar-area').innerHTML=html;
   renderPeriodStats(monthISOs, 'Month');
+}
+
+function changePlanMonth(dir) {
+  currentPlanMonthDate=new Date(currentPlanMonthDate.getFullYear(),currentPlanMonthDate.getMonth()+dir,1);
+  renderPlanMonth();
+}
+function changePlanWeek(dir) {
+  currentPlanWeekStart=addDays(currentPlanWeekStart,dir*7);
+  renderPlanWeek();
+}
+
+function renderPlanMonth() {
+  const el=document.getElementById('plan-month-calendar');
+  if(!el) return;
+  const y=currentPlanMonthDate.getFullYear(), m=currentPlanMonthDate.getMonth();
+  document.getElementById('plan-month-label').textContent=new Date(y,m,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const today=todayISO();
+
+  const firstOfMonth=new Date(y,m,1);
+  const startCell=getMonday(firstOfMonth);
+  const lastOfMonth=new Date(y,m+1,0);
+  const lastDay=lastOfMonth.getDay();
+  const endCell=addDays(lastOfMonth,lastDay===0?0:7-lastDay);
+  const totalCells=Math.round((endCell-startCell)/86400000)+1;
+
+  let html='<div class="cal-header">';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>html+='<div class="day-name">'+d+'</div>');
+  html+='</div><div class="month-grid">';
+  for(let i=0;i<totalCells;i++){
+    const d=addDays(startCell,i), key=fmtISO(d), plan=state.plan[key]||null;
+    const otherMonth=d.getMonth()!==m;
+    const isToday=key===today;
+    const doneClass = plan&&plan.done ? ' plan-done' : '';
+    html+='<div class="month-cell plan-cell'+doneClass+(otherMonth?' other-month':'')+'" onclick="openPlanModal(\''+key+'\')">'+
+      '<div class="day-num'+(isToday?' today':'')+'">'+(isToday?'\u2022 ':'')+d.getDate()+'</div>'+
+      (plan&&plan.done?'<div class="plan-check">\u2713</div>':'')+
+      '<div class="day-content">'+esc(plan?plan.title:'')+'</div></div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function renderPlanWeek() {
+  const el=document.getElementById('plan-week-body');
+  if(!el) return;
+  const ws=currentPlanWeekStart, we=addDays(ws,6);
+  document.getElementById('plan-week-label').textContent=fmtDate(ws)+' \u2013 '+fmtDate(we);
+  const today=todayISO();
+  const dayNames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  let html='<div class="plan-week-list">';
+  for(let i=0;i<7;i++){
+    const d=addDays(ws,i), key=fmtISO(d), plan=state.plan[key]||null;
+    const isToday=key===today;
+    const done=!!(plan&&plan.done);
+    html+='<div class="plan-day-card'+(done?' plan-done':'')+(isToday?' plan-today':'')+'">'+
+      '<label class="plan-checkbox-wrap"><input type="checkbox" '+(done?'checked':'')+' onclick="event.stopPropagation();togglePlanDone(\''+key+'\')"></label>'+
+      '<div class="plan-day-body" onclick="openPlanModal(\''+key+'\')">'+
+      '<div class="plan-day-head">'+
+        '<span class="plan-day-name">'+dayNames[i]+'</span>'+
+        '<span class="plan-day-date">'+fmtDate(d)+'</span>'+
+        (isToday?'<span class="plan-today-badge">Today</span>':'')+
+      '</div>'+
+      (plan&&plan.title?'<div class="plan-day-title">'+esc(plan.title)+'</div>':'<div class="plan-day-title plan-empty">No plan set \u2014 tap to add</div>')+
+      (plan&&plan.detail?'<div class="plan-day-detail">'+esc(plan.detail)+'</div>':'')+
+      '</div></div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
 }
 
 /* Count total pitches/problems logged in a climb session */
@@ -478,6 +640,270 @@ function saveDay(key) {
   saveState(); closeModal(); renderCalendar();
 }
 function deleteDay(key) { delete state.days[key]; saveState(); closeModal(); renderCalendar(); }
+
+/* PLAN MODAL -- planned workouts/trips, separate store from actual logged days */
+function renderPlanViews() { renderPlanMonth(); renderPlanWeek(); }
+
+function togglePlanDone(key) {
+  if(!state.plan[key]) state.plan[key]={title:'',detail:'',done:false};
+  state.plan[key].done=!state.plan[key].done;
+  saveState(); renderPlanViews();
+}
+
+function openPlanModal(key) {
+  const plan=key?(state.plan[key]||{}):{};
+  const dateVal=key||fmtISO(new Date());
+  const hasContent=!!(plan.title||plan.detail);
+  openModal(
+    '<div class="modal-header"><span class="modal-title">'+(key?'Plan \u2014 '+fmtDisplay(key):'Add plan item')+'</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div class="form-row single"><div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"'+(key?' readonly':'')+'></div></div>'+
+    '<div class="form-row single"><div><label>Title</label><input type="text" id="m-plan-title" value="'+esc(plan.title||'')+'" placeholder="e.g. Boulder session, Yosemite trip, Rest day"></div></div>'+
+    '<div class="form-row single"><div><label>Details</label><textarea id="m-plan-detail" placeholder="What to focus on, trip logistics, anything worth noting...">'+esc(plan.detail||'')+'</textarea></div></div>'+
+    '<div class="form-row single"><div><label class="plan-modal-done-label"><input type="checkbox" id="m-plan-done" '+(plan.done?'checked':'')+'> Mark as done</label></div></div>'+
+    '<div class="modal-footer"><div class="modal-footer-left">'+
+    (key&&hasContent?'<button class="btn btn-sm btn-danger" onclick="deletePlan(\''+key+'\')">Delete</button>':'')+
+    '</div><button class="btn btn-sm btn-accent" onclick="savePlan(\''+esc(key||'')+'\')">Save</button></div>');
+}
+
+function savePlan(key) {
+  const dateInput=document.getElementById('m-date').value;
+  const date=key||dateInput;
+  const title=document.getElementById('m-plan-title').value;
+  const detail=document.getElementById('m-plan-detail').value;
+  const done=document.getElementById('m-plan-done').checked;
+  if(!date) return;
+  if(!title&&!detail) delete state.plan[date];
+  else state.plan[date]={title,detail,done};
+  saveState(); closeModal(); renderPlanViews();
+}
+function deletePlan(key) { delete state.plan[key]; saveState(); closeModal(); renderPlanViews(); }
+
+/* ===================== BIG GOALS ===================== */
+const GOAL_CATEGORIES = ['climbing','cardio','strength','general'];
+
+function renderGoals() {
+  const el=document.getElementById('goals-list');
+  if(!el) return;
+  const sf=document.getElementById('goals-status-filter')?.value||'all';
+  const filtered=state.goals.filter(g=>sf==='all'||g.status===sf);
+  if(!filtered.length){el.innerHTML='<div class="empty-state">No goals yet \u2014 add your big picture targets for the year (or years) ahead</div>';return;}
+  const sorted=[...filtered].sort((a,b)=>(a.targetDate||'9999-99-99').localeCompare(b.targetDate||'9999-99-99'));
+  el.innerHTML=sorted.map(g=>{
+    const idx=state.goals.indexOf(g);
+    const total=(g.milestones||[]).length;
+    const doneCount=(g.milestones||[]).filter(m=>m.done).length;
+    const pct=total?Math.round(doneCount/total*100):0;
+    const msHtml=(g.milestones||[]).map(ms=>
+      '<div class="milestone-item'+(ms.done?' done':'')+'">'+
+      '<input type="checkbox" '+(ms.done?'checked':'')+' onclick="event.stopPropagation();toggleMilestone(\''+g.id+'\',\''+ms.id+'\')">'+
+      '<span>'+esc(ms.text)+'</span></div>'
+    ).join('');
+    return '<div class="goal-card status-'+esc(g.status||'not-started')+'">'+
+      '<div class="goal-header" onclick="openGoalModal('+idx+')">'+
+        '<span class="pill pill-goal-'+esc(g.category||'general')+'">'+esc(g.category||'general')+'</span>'+
+        '<span class="goal-title">'+esc(g.title)+'</span>'+
+        (g.targetDate?'<span class="entry-date" style="margin-left:auto">'+fmtDisplay(g.targetDate)+'</span>':'')+
+      '</div>'+
+      (g.notes?'<div class="goal-notes" onclick="openGoalModal('+idx+')">'+esc(g.notes)+'</div>':'')+
+      (total?'<div class="goal-progress-track"><div class="goal-progress-bar" style="width:'+pct+'%"></div></div><div class="milestone-list">'+msHtml+'</div>':'')+
+    '</div>';
+  }).join('');
+}
+
+function setGoalsFilter() { renderGoals(); }
+
+function toggleMilestone(goalId,msId) {
+  const g=state.goals.find(g=>g.id===goalId);
+  if(!g) return;
+  const ms=(g.milestones||[]).find(m=>m.id===msId);
+  if(!ms) return;
+  ms.done=!ms.done;
+  saveState(); renderGoals(); renderYearly();
+}
+
+function milestoneRowHtml(ms) {
+  return '<div class="subrow milestone-row" data-id="'+esc(ms.id||'')+'" style="grid-template-columns:24px 1fr 28px">'+
+    '<input type="checkbox" '+(ms.done?'checked':'')+'>'+
+    '<input type="text" value="'+esc(ms.text||'')+'" placeholder="Milestone...">'+
+    '<button class="remove-btn" onclick="this.closest(\'.milestone-row\').remove()">&times;</button></div>';
+}
+function addMilestoneRow() {
+  const wrap=document.getElementById('goal-milestones');
+  const div=document.createElement('div');
+  div.innerHTML=milestoneRowHtml({});
+  wrap.appendChild(div.firstElementChild);
+}
+
+function openGoalModal(idx) {
+  const editing=idx!==null&&idx!==undefined&&idx>=0;
+  const g=editing?state.goals[idx]:{};
+  const category=g.category||'climbing', status=g.status||'not-started';
+  const msHtml=(g.milestones||[]).map(milestoneRowHtml).join('');
+  openModal(
+    '<div class="modal-header"><span class="modal-title">'+(editing?'Edit goal':'Add a big goal')+'</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div class="form-row single"><div><label>Title</label><input type="text" id="m-goal-title" value="'+esc(g.title||'')+'" placeholder="e.g. Send a 5.12 outdoors, run a 50k"></div></div>'+
+    '<div class="form-row">'+
+    '<div><label>Target date</label><input type="date" id="m-goal-date" value="'+esc(g.targetDate||'')+'"></div>'+
+    '<div><label>Category</label><select id="m-goal-category">'+
+    GOAL_CATEGORIES.map(c=>'<option value="'+c+'"'+(c===category?' selected':'')+'>'+c.charAt(0).toUpperCase()+c.slice(1)+'</option>').join('')+
+    '</select></div></div>'+
+    '<div class="form-row single"><div><label>Status</label><select id="m-goal-status">'+
+    '<option value="not-started"'+(status==='not-started'?' selected':'')+'>Not started</option>'+
+    '<option value="in-progress"'+(status==='in-progress'?' selected':'')+'>In progress</option>'+
+    '<option value="done"'+(status==='done'?' selected':'')+'>Done</option>'+
+    '</select></div></div>'+
+    '<div class="form-row single"><div><label>Notes</label><textarea id="m-goal-notes" placeholder="Why this matters, what success looks like...">'+esc(g.notes||'')+'</textarea></div></div>'+
+    '<div class="section-divider">Milestones</div>'+
+    '<div id="goal-milestones">'+msHtml+'</div>'+
+    '<button class="add-row-btn" onclick="addMilestoneRow()">+ Add milestone</button>'+
+    '<div class="modal-footer"><div class="modal-footer-left">'+
+    (editing?'<button class="btn btn-sm btn-danger" onclick="deleteGoal('+idx+')">Delete</button>':'')+
+    '</div><button class="btn btn-sm btn-accent" onclick="saveGoal('+(editing?idx:-1)+')">Save goal</button></div>');
+}
+
+function saveGoal(idx) {
+  const title=document.getElementById('m-goal-title').value.trim();
+  if(!title) return;
+  const targetDate=document.getElementById('m-goal-date').value;
+  const category=document.getElementById('m-goal-category').value;
+  const status=document.getElementById('m-goal-status').value;
+  const notes=document.getElementById('m-goal-notes').value;
+  const milestones=[];
+  document.querySelectorAll('#goal-milestones .milestone-row').forEach(row=>{
+    const text=row.querySelector('input[type="text"]').value.trim();
+    if(!text) return;
+    const done=row.querySelector('input[type="checkbox"]').checked;
+    milestones.push({id:row.dataset.id||genId(),text,done});
+  });
+  const entry={id:(idx>=0?state.goals[idx].id:genId()),title,targetDate,category,status,notes,milestones};
+  if(idx>=0) state.goals[idx]=entry; else state.goals.push(entry);
+  saveState(); closeModal(); renderGoals(); renderYearly();
+}
+function deleteGoal(idx) { state.goals.splice(idx,1); saveState(); closeModal(); renderGoals(); renderYearly(); }
+
+/* ===================== TRAINING CYCLES ===================== */
+function renderCycles() {
+  const el=document.getElementById('cycles-list');
+  if(!el) return;
+  if(!state.cycles.length){el.innerHTML='<div class="empty-state">No training cycles yet \u2014 block out phases like "Yosemite prep" or "Winter base building"</div>';return;}
+  const sorted=[...state.cycles].sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  const today=todayISO();
+  el.innerHTML=sorted.map(c=>{
+    const idx=state.cycles.indexOf(c);
+    const isCurrent=!!(c.startDate&&c.endDate&&today>=c.startDate&&today<=c.endDate);
+    return '<div class="log-entry cycle-card'+(isCurrent?' cycle-current':'')+'" onclick="openCycleModal('+idx+')">'+
+      '<div class="entry-header"><span class="cycle-title">'+esc(c.title)+'</span>'+
+      (isCurrent?'<span class="pill pill-current">current</span>':'')+
+      '<span class="entry-date" style="margin-left:auto">'+(c.startDate?fmtDisplay(c.startDate):'?')+' \u2013 '+(c.endDate?fmtDisplay(c.endDate):'?')+'</span></div>'+
+      (c.focus?'<div class="entry-detail">'+esc(c.focus)+'</div>':'')+
+    '</div>';
+  }).join('');
+}
+
+function openCycleModal(idx) {
+  const editing=idx!==null&&idx!==undefined&&idx>=0;
+  const c=editing?state.cycles[idx]:{};
+  openModal(
+    '<div class="modal-header"><span class="modal-title">'+(editing?'Edit training cycle':'Add a training cycle')+'</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div class="form-row single"><div><label>Title</label><input type="text" id="m-cycle-title" value="'+esc(c.title||'')+'" placeholder="e.g. Yosemite prep, Winter base building"></div></div>'+
+    '<div class="form-row">'+
+    '<div><label>Start date</label><input type="date" id="m-cycle-start" value="'+esc(c.startDate||'')+'"></div>'+
+    '<div><label>End date</label><input type="date" id="m-cycle-end" value="'+esc(c.endDate||'')+'"></div></div>'+
+    '<div class="form-row single"><div><label>Focus</label><textarea id="m-cycle-focus" placeholder="What this block is building toward...">'+esc(c.focus||'')+'</textarea></div></div>'+
+    '<div class="modal-footer"><div class="modal-footer-left">'+
+    (editing?'<button class="btn btn-sm btn-danger" onclick="deleteCycle('+idx+')">Delete</button>':'')+
+    '</div><button class="btn btn-sm btn-accent" onclick="saveCycle('+(editing?idx:-1)+')">Save cycle</button></div>');
+}
+
+function saveCycle(idx) {
+  const title=document.getElementById('m-cycle-title').value.trim();
+  if(!title) return;
+  const startDate=document.getElementById('m-cycle-start').value;
+  const endDate=document.getElementById('m-cycle-end').value;
+  const focus=document.getElementById('m-cycle-focus').value;
+  const entry={id:(idx>=0?state.cycles[idx].id:genId()),title,startDate,endDate,focus};
+  if(idx>=0) state.cycles[idx]=entry; else state.cycles.push(entry);
+  saveState(); closeModal(); renderCycles(); renderYearly();
+}
+function deleteCycle(idx) { state.cycles.splice(idx,1); saveState(); closeModal(); renderCycles(); renderYearly(); }
+
+/* ===================== YEARLY OVERVIEW ===================== */
+function changeYear(dir) { currentYear+=dir; renderYearly(); }
+
+function dayActivityCount(iso) {
+  let n=0;
+  n+=state.climbs.filter(c=>c.date===iso).length;
+  n+=state.cardio.filter(c=>c.date===iso).length;
+  n+=state.strength.filter(c=>c.date===iso).length;
+  return n;
+}
+function heatLevel(n) { if(n<=0) return 0; if(n===1) return 1; if(n===2) return 2; if(n<=4) return 3; return 4; }
+
+function renderYearlyHeatmap(year) {
+  const jan1=new Date(year,0,1);
+  const startOffset=(jan1.getDay()+6)%7; // days to prepend so weeks start Monday
+  const dec31=new Date(year,11,31);
+  const totalDays=Math.round((dec31-jan1)/86400000)+1;
+  const cells=[];
+  for(let i=0;i<startOffset;i++) cells.push(null);
+  for(let i=0;i<totalDays;i++) cells.push(fmtISO(addDays(jan1,i)));
+  const weekCols=[];
+  for(let i=0;i<cells.length;i+=7) weekCols.push(cells.slice(i,i+7));
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let lastMonth=-1;
+  const colsHtml=weekCols.map(week=>{
+    let label='';
+    week.forEach(iso=>{
+      if(!iso) return;
+      const day=+iso.slice(8,10), month=+iso.slice(5,7)-1;
+      if(day===1&&month!==lastMonth){ label=monthNames[month]; lastMonth=month; }
+    });
+    const dayCells=week.map(iso=>{
+      if(!iso) return '<div class="heat-cell heat-empty"></div>';
+      const n=dayActivityCount(iso), lvl=heatLevel(n);
+      return '<div class="heat-cell heat-lvl'+lvl+'" title="'+fmtDisplay(iso)+' \u2014 '+n+' session'+(n===1?'':'s')+'"></div>';
+    }).join('');
+    return '<div class="heat-week-col"><div class="heat-month-label">'+label+'</div><div class="heat-week-cells">'+dayCells+'</div></div>';
+  }).join('');
+  return '<div class="heatmap-wrap"><div class="heatmap-scroll">'+colsHtml+'</div></div>'+
+    '<div class="heat-legend">Less <span class="heat-cell heat-lvl0"></span><span class="heat-cell heat-lvl1"></span><span class="heat-cell heat-lvl2"></span><span class="heat-cell heat-lvl3"></span><span class="heat-cell heat-lvl4"></span> More</div>';
+}
+
+function renderYearlyMonths(year) {
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let html='<div class="year-month-grid">';
+  for(let m=0;m<12;m++){
+    const first=fmtISO(new Date(year,m,1));
+    const last=fmtISO(new Date(year,m+1,0));
+    const inMonth=iso=>iso&&iso>=first&&iso<=last;
+    const climbs=state.climbs.filter(c=>inMonth(c.date));
+    const cardio=state.cardio.filter(c=>inMonth(c.date));
+    const strength=state.strength.filter(c=>inMonth(c.date));
+    const pitches=climbs.reduce((s,c)=>s+climbPitchCount(c),0);
+    const miles=cardio.reduce((s,c)=>s+(parseFloat(c.miles)||0),0);
+    const sessions=climbs.length+cardio.length+strength.length;
+    const goalsThisMonth=state.goals.filter(g=>inMonth(g.targetDate));
+    const cyclesThisMonth=state.cycles.filter(c=>c.startDate&&c.endDate&&c.startDate<=last&&c.endDate>=first);
+    html+='<div class="year-month-card">'+
+      '<div class="year-month-title">'+monthNames[m]+'</div>'+
+      '<div class="year-month-stats">'+sessions+' sessions \u00b7 '+pitches+' pitches \u00b7 '+miles.toFixed(1)+' mi</div>'+
+      (cyclesThisMonth.length?'<div class="year-month-tags">'+cyclesThisMonth.map(c=>'<span class="pill pill-cycle">'+esc(c.title)+'</span>').join('')+'</div>':'')+
+      (goalsThisMonth.length?'<div class="year-month-tags">'+goalsThisMonth.map(g=>'<span class="pill pill-goal-deadline">\ud83c\udfaf '+esc(g.title)+'</span>').join('')+'</div>':'')+
+    '</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function renderYearly() {
+  if(!document.getElementById('yearly-heatmap')) return;
+  document.getElementById('year-label').textContent=String(currentYear);
+  document.getElementById('yearly-heatmap').innerHTML=renderYearlyHeatmap(currentYear);
+  document.getElementById('yearly-months').innerHTML=renderYearlyMonths(currentYear);
+}
 
 /* CLIMB MODAL */
 function climbGradeOpts(cat,venue) {
@@ -765,18 +1191,25 @@ async function restoreFromGist() {
     if (!file) throw new Error('Backup file not found in gist');
     const imp = JSON.parse(file.content);
     const days = typeof imp.days === 'object' ? imp.days : {};
+    const plan = typeof imp.plan === 'object' ? imp.plan : {};
     const climbs = Array.isArray(imp.climbs) ? imp.climbs : [];
     const cardio = Array.isArray(imp.cardio) ? imp.cardio : [];
     const fuel = Array.isArray(imp.fuel) ? imp.fuel : [];
     const strength = Array.isArray(imp.strength) ? imp.strength : [];
+    const goals = Array.isArray(imp.goals) ? imp.goals : [];
+    const cycles = Array.isArray(imp.cycles) ? imp.cycles : [];
     state.days = { ...state.days, ...days };
+    state.plan = { ...state.plan, ...plan };
     function mergeArr(ex, inc) { const seen = new Set(ex.map(x => JSON.stringify(x))); inc.forEach(x => { const k = JSON.stringify(x); if (!seen.has(k)) { seen.add(k); ex.push(x); } }); return ex; }
     state.climbs = mergeArr(state.climbs, climbs);
     state.cardio = mergeArr(state.cardio, cardio);
     state.fuel = mergeArr(state.fuel, fuel);
     state.strength = mergeArr(state.strength, strength);
+    state.goals = mergeArr(state.goals, goals);
+    state.cycles = mergeArr(state.cycles, cycles);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
+    renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
     showToast('Restored from cloud backup');
     closeModal();
   } catch (e) {
@@ -840,20 +1273,27 @@ function importData(event) {
       const imp=JSON.parse(e.target.result);
       if(typeof imp!=='object'||Array.isArray(imp)) throw new Error();
       const days=typeof imp.days==='object'?imp.days:{};
+      const plan=typeof imp.plan==='object'?imp.plan:{};
       const climbs=Array.isArray(imp.climbs)?imp.climbs:[];
       const cardio=Array.isArray(imp.cardio)?imp.cardio:[];
       const fuel=Array.isArray(imp.fuel)?imp.fuel:[];
       const strength=Array.isArray(imp.strength)?imp.strength:[];
+      const goals=Array.isArray(imp.goals)?imp.goals:[];
+      const cycles=Array.isArray(imp.cycles)?imp.cycles:[];
       const existing=Object.keys(state.days).length+state.climbs.length+state.cardio.length+state.fuel.length+state.strength.length;
       if(existing>0&&!confirm('This will merge the backup with your current data. Continue?')){event.target.value='';return;}
       state.days={...state.days,...days};
+      state.plan={...state.plan,...plan};
       function mergeArr(ex,inc){const seen=new Set(ex.map(x=>JSON.stringify(x)));inc.forEach(x=>{const k=JSON.stringify(x);if(!seen.has(k)){seen.add(k);ex.push(x);}});return ex;}
       state.climbs=mergeArr(state.climbs,climbs);
       state.cardio=mergeArr(state.cardio,cardio);
       state.fuel=mergeArr(state.fuel,fuel);
       state.strength=mergeArr(state.strength,strength);
+      state.goals=mergeArr(state.goals,goals);
+      state.cycles=mergeArr(state.cycles,cycles);
       saveState();
       renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
+      renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
       showToast('Backup imported successfully');
     } catch(err){ alert('That file doesn\'t look like a valid training log backup.'); }
     event.target.value='';
@@ -881,6 +1321,7 @@ async function bootstrapSeedData() {
       // Merge seed into existing without overwriting newer entries
       const cur = JSON.parse(existing);
       const mergedDays = Object.assign({}, seed.days, cur.days);
+      const mergedPlan = Object.assign({}, seed.plan, cur.plan);
       function mergeArr(ex, inc) {
         const seen = new Set(ex.map(x => JSON.stringify(x)));
         inc.forEach(x => { const k = JSON.stringify(x); if (!seen.has(k)) { seen.add(k); ex.push(x); } });
@@ -888,10 +1329,13 @@ async function bootstrapSeedData() {
       }
       const merged = {
         days: mergedDays,
+        plan: mergedPlan,
         climbs: mergeArr(cur.climbs || [], seed.climbs || []),
         cardio: mergeArr(cur.cardio || [], seed.cardio || []),
         fuel: mergeArr(cur.fuel || [], seed.fuel || []),
         strength: mergeArr(cur.strength || [], seed.strength || []),
+        goals: mergeArr(cur.goals || [], seed.goals || []),
+        cycles: mergeArr(cur.cycles || [], seed.cycles || []),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }
@@ -901,4 +1345,6 @@ async function bootstrapSeedData() {
   }
 }
 
+initTheme();
+initBackground();
 bootstrapSeedData().then(loadState);
