@@ -106,7 +106,78 @@ const CLIMB_GRADES = [
   {k:'Trad \u22655.13a',cat:'trad',venue:'outdoor'},
 ];
 
-let state = {days:{}, climbs:[], cardio:[], fuel:[], strength:[], plan:{}, goals:[], cycles:[]};
+// Exercise library: per focus-area lists of named exercises, used to
+// populate the checklist inside a strength session. Fully user-editable
+// via the "Manage exercises" screen -- these are just sensible starting
+// points seeded once, mirroring what showed up across the finger/upper/
+// lower spreadsheets. `unilateral` is just the *default* for a brand new
+// row of that exercise; the per-row toggle in the modal always wins.
+const STRENGTH_AREAS = ['upper','lower','core','wrist'];
+const DEFAULT_EXERCISE_LIBRARY = {
+  wrist: [ // finger strength
+    {id:'ex-3fd',    name:'3 Finger Drag (20mm)', unilateral:false},
+    {id:'ex-hc20',   name:'Half Crimp (20mm)',     unilateral:false},
+    {id:'ex-hc10',   name:'Half Crimp (10mm)',     unilateral:false},
+    {id:'ex-fc',     name:'Full Crimp (10mm)',     unilateral:false},
+    {id:'ex-pinch',  name:'Pinch Block',           unilateral:false},
+  ],
+  upper: [
+    {id:'ex-pullup',   name:'Pull-ups',                unilateral:false},
+    {id:'ex-pushup',   name:'Push-ups',                unilateral:false},
+    {id:'ex-tripush',  name:'Tricep push-ups',         unilateral:false},
+    {id:'ex-dip',      name:'Dips',                    unilateral:false},
+    {id:'ex-ohp',      name:'Overhead / Arnold press', unilateral:false},
+    {id:'ex-shoulder', name:'Shoulder press',          unilateral:false},
+    {id:'ex-chest',    name:'Chest press',             unilateral:false},
+    {id:'ex-latraise', name:'Lateral raises',          unilateral:false},
+    {id:'ex-frontraise',name:'Front raise',            unilateral:false},
+    {id:'ex-fly',      name:'Supine dumbbell fly',     unilateral:false},
+    {id:'ex-scap',     name:'Scapular pulls',          unilateral:false},
+  ],
+  core: [
+    {id:'ex-plank',     name:'Plank',                          unilateral:false},
+    {id:'ex-deadbug',   name:'Dead bug',                       unilateral:false},
+    {id:'ex-hollow',    name:'Hollow body hold',               unilateral:false},
+    {id:'ex-h2t',       name:'Hands to toes',                  unilateral:false},
+    {id:'ex-legraise',  name:'Hanging leg / knee raises',       unilateral:false},
+    {id:'ex-rotation',  name:'Weighted rotations',              unilateral:false},
+    {id:'ex-sideplank', name:'Side plank w/ hip abduction',    unilateral:true},
+  ],
+  lower: [
+    {id:'ex-deadlift',  name:'Deadlift',        unilateral:false},
+    {id:'ex-squat',     name:'Squat',           unilateral:false},
+    {id:'ex-stepup',    name:'Step up',         unilateral:true},
+    {id:'ex-stepdown',  name:'Step down',       unilateral:true},
+    {id:'ex-crossover', name:'Cross over steps',unilateral:true},
+    {id:'ex-calf',      name:'Calf raises',     unilateral:false},
+  ],
+};
+function ensureExerciseLibrary() {
+  state.exerciseLibrary = state.exerciseLibrary || {};
+  STRENGTH_AREAS.forEach(a=>{
+    if(!Array.isArray(state.exerciseLibrary[a])) {
+      state.exerciseLibrary[a] = DEFAULT_EXERCISE_LIBRARY[a].map(e=>({...e}));
+    }
+  });
+}
+function genExId() { return 'ex'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function mergeExerciseLibrary(cur, inc) {
+  cur = cur || {};
+  inc = inc || {};
+  STRENGTH_AREAS.forEach(a=>{
+    const curList = Array.isArray(cur[a]) ? cur[a] : [];
+    const incList = Array.isArray(inc[a]) ? inc[a] : [];
+    const seenNames = new Set(curList.map(e=>e.name.trim().toLowerCase()));
+    incList.forEach(e=>{
+      const key = (e.name||'').trim().toLowerCase();
+      if(key && !seenNames.has(key)) { seenNames.add(key); curList.push({...e}); }
+    });
+    cur[a] = curList;
+  });
+  return cur;
+}
+
+let state = {days:{}, climbs:[], cardio:[], fuel:[], strength:[], plan:{}, goals:[], cycles:[], exerciseLibrary:{}};
 let currentWeekStart = getMonday(new Date());
 let currentMonthDate = new Date();
 let calView = 'week';
@@ -123,6 +194,8 @@ function loadState() {
   state.plan = state.plan || {}; // backfill for states saved before the plan feature existed
   state.goals = state.goals || []; // backfill for states saved before goals existed
   state.cycles = state.cycles || []; // backfill for states saved before cycles existed
+  state.strength.forEach(s=>{ s.exercises = s.exercises || []; }); // backfill for entries saved before per-exercise tracking existed
+  ensureExerciseLibrary(); // backfill for states saved before the exercise library existed, and top up any new default categories
   dedupeState();
   renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
   renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
@@ -138,7 +211,7 @@ function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(sta
 function cardioKey(c) { return ['date','actType','objective','miles','vert','time','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0') + '|' + (c.weighted?'1':'0'); }
 function climbKey(c) { return ['date','venue','climbType','notes'].map(k=>c[k]||'').join('|') + '|' + (c.alpine?'1':'0') + '|' + JSON.stringify(c.rows||[]); }
 function fuelKey(f) { return ['date','objective','food','gear','notes'].map(k=>f[k]||'').join('|'); }
-function strengthKey(s) { return ['date','kind','area','time','notes'].map(k=>s[k]||'').join('|'); }
+function strengthKey(s) { return ['date','kind','area','time','notes'].map(k=>s[k]||'').join('|') + '|' + JSON.stringify(s.exercises||[]); }
 
 function dedupeArr(arr, keyFn) {
   const seen = new Set(); const out = []; let removed = 0;
@@ -295,7 +368,7 @@ function renderWeek() {
     const d=addDays(ws,i), key=fmtISO(d), entry=state.days[key]||null;
     const vc=vibeClass(entry);
     const isToday=key===today;
-    html+='<div class="day-cell '+vc+'" onclick="openLogChoiceModal(\''+key+'\')">'+
+    html+='<div class="day-cell '+vc+'" onclick="openDaySummaryModal(\''+key+'\')">'+
       '<div class="day-num'+(isToday?' today':'')+'">'+(isToday?'\u2022 ':'')+d.getDate()+'</div>'+
       cellBadges(key)+
       '<div class="day-content">'+esc(entry?entry.text:'')+'</div></div>';
@@ -327,7 +400,7 @@ function renderMonth() {
     if(!otherMonth) monthISOs.push(key);
     const vc=vibeClass(entry);
     const isToday=key===today;
-    html+='<div class="month-cell '+vc+(otherMonth?' other-month':'')+'" onclick="openLogChoiceModal(\''+key+'\')">'+
+    html+='<div class="month-cell '+vc+(otherMonth?' other-month':'')+'" onclick="openDaySummaryModal(\''+key+'\')">'+
       '<div class="day-num'+(isToday?' today':'')+'">'+(isToday?'\u2022 ':'')+d.getDate()+'</div>'+
       cellBadges(key)+
       '<div class="day-content">'+esc(entry?entry.text:'')+'</div></div>';
@@ -427,47 +500,54 @@ function renderPeriodStats(isos, label) {
     '<div class="stat-card"><div class="stat-val">'+sessions+'</div><div class="stat-label">'+label+' sessions</div></div></div>';
 }
 
+function climbEntryHtml(c) {
+  const rows=(c.rows||[]).map(r=>r.count+'\u00d7 '+r.grade).join(' \u00b7 ');
+  const pitchCount=climbPitchCount(c);
+  return '<div class="log-entry" onclick="openClimbModal('+c._i+')">'+
+    '<div class="entry-header"><span class="pill pill-'+esc(c.climbType||'climb')+'">'+esc(c.venue||'')+' '+esc(c.climbType||'')+'</span>'+
+    (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
+    '<span class="entry-date">'+fmtDisplay(c.date)+'</span>'+
+    (pitchCount?'<span class="entry-pts">'+pitchCount+' pitches</span>':'')+'</div>'+
+    '<div class="entry-detail">'+esc(rows)+(c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>';
+}
 function renderClimbs() {
   const tf=document.getElementById('climb-type-filter')?.value||'all';
   const vf=document.getElementById('climb-venue-filter')?.value||'all';
   const filtered=state.climbs.map((c,i)=>({...c,_i:i})).filter(c=>(tf==='all'||c.climbType===tf)&&(vf==='all'||c.venue===vf)).sort((a,b)=>b.date.localeCompare(a.date));
   const el=document.getElementById('climb-list');
   if(!filtered.length){el.innerHTML='<div class="empty-state">No sessions logged yet</div>';return;}
-  el.innerHTML=filtered.map(c=>{
-    const rows=(c.rows||[]).map(r=>r.count+'\u00d7 '+r.grade).join(' \u00b7 ');
-    const pitchCount=climbPitchCount(c);
-    return '<div class="log-entry" onclick="openClimbModal('+c._i+')">'+
-      '<div class="entry-header"><span class="pill pill-'+esc(c.climbType||'climb')+'">'+esc(c.venue||'')+' '+esc(c.climbType||'')+'</span>'+
-      (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
-      '<span class="entry-date">'+fmtDisplay(c.date)+'</span>'+
-      (pitchCount?'<span class="entry-pts">'+pitchCount+' pitches</span>':'')+'</div>'+
-      '<div class="entry-detail">'+esc(rows)+(c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>';
-  }).join('');
+  el.innerHTML=filtered.map(climbEntryHtml).join('');
 }
 
-function renderCardio() {
-  const sorted=state.cardio.map((c,i)=>({...c,_i:i})).sort((a,b)=>b.date.localeCompare(a.date));
-  const el=document.getElementById('cardio-list');
-  if(!sorted.length){el.innerHTML='<div class="empty-state">No activities logged yet</div>';return;}
-  el.innerHTML=sorted.map(c=>'<div class="log-entry" onclick="openCardioModal('+c._i+')">'+
+function cardioEntryHtml(c) {
+  return '<div class="log-entry" onclick="openCardioModal('+c._i+')">'+
     '<div class="entry-header"><span class="pill pill-cardio">'+esc(c.actType||'cardio')+'</span>'+
     (c.alpine?'<span class="pill pill-alpine">alpine</span>':'')+
     (c.weighted?'<span class="pill pill-alpine">weighted</span>':'')+
     '<span class="entry-date">'+fmtDisplay(c.date)+'</span></div>'+
     '<div class="entry-detail">'+(c.objective?'<strong>'+esc(c.objective)+'</strong> \u00b7 ':'')+
     (c.miles?c.miles+' mi':'')+(c.vert?' \u00b7 '+Number(c.vert).toLocaleString()+' ft vert':'')+(c.time?' \u00b7 '+c.time+' hrs':'')+
-    (c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>').join('');
+    (c.notes?'<br><span class="entry-note">'+esc(c.notes)+'</span>':'')+'</div></div>';
+}
+function renderCardio() {
+  const sorted=state.cardio.map((c,i)=>({...c,_i:i})).sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('cardio-list');
+  if(!sorted.length){el.innerHTML='<div class="empty-state">No activities logged yet</div>';return;}
+  el.innerHTML=sorted.map(cardioEntryHtml).join('');
 }
 
+function fuelEntryHtml(f) {
+  return '<div class="fuel-entry" onclick="openFuelModal('+f._i+')">'+
+    '<div class="fuel-header"><span class="pill pill-fuel">fuel &amp; gear</span>'+
+    '<strong style="font-size:14px">'+esc(f.objective||'')+'</strong>'+
+    '<span class="entry-date" style="margin-left:auto">'+fmtDisplay(f.date)+'</span></div>'+
+    '<div class="fuel-body">'+esc([f.food&&('Food: '+f.food),f.gear&&('Gear: '+f.gear),f.notes&&('Notes: '+f.notes)].filter(Boolean).join('\n\n'))+'</div></div>';
+}
 function renderFuel() {
   const sorted=state.fuel.map((f,i)=>({...f,_i:i})).sort((a,b)=>b.date.localeCompare(a.date));
   const el=document.getElementById('fuel-list');
   if(!sorted.length){el.innerHTML='<div class="empty-state">No notes yet \u2014 log what you ate, drank, and wore on big days</div>';return;}
-  el.innerHTML=sorted.map(f=>'<div class="fuel-entry" onclick="openFuelModal('+f._i+')">'+
-    '<div class="fuel-header"><span class="pill pill-fuel">fuel &amp; gear</span>'+
-    '<strong style="font-size:14px">'+esc(f.objective||'')+'</strong>'+
-    '<span class="entry-date" style="margin-left:auto">'+fmtDisplay(f.date)+'</span></div>'+
-    '<div class="fuel-body">'+esc([f.food&&('Food: '+f.food),f.gear&&('Gear: '+f.gear),f.notes&&('Notes: '+f.notes)].filter(Boolean).join('\n\n'))+'</div></div>').join('');
+  el.innerHTML=sorted.map(fuelEntryHtml).join('');
 }
 
 /* ===================== STATS / PITCH BREAKDOWN ===================== */
@@ -592,17 +672,40 @@ function getSelectedTag(groupId) {
 function toggleSoloTag(el) { el.classList.toggle('selected'); }
 
 /* DAY MODAL */
-/* Chooser shown by "+ Log day" -- picks climb, cardio, or a plain rest-day/notes entry */
-function openLogChoiceModal(dateISO) {
-  const d = dateISO ? "'"+dateISO+"'" : 'null';
+/* Shown when a calendar cell is clicked -- a summary of everything logged
+   that day (climbs, cardio, strength, vibe notes), each entry clickable to
+   edit, plus buttons to add something new for the day. */
+function dayVibeEntryHtml(dateISO) {
+  const entry=state.days[dateISO];
+  if(!entry || (!entry.text && !entry.vibe)) return '';
+  const vLabel=entry.vibe ? entry.vibe.charAt(0).toUpperCase()+entry.vibe.slice(1) : '';
+  return '<div class="log-entry" onclick="openDayModal(\''+dateISO+'\')">'+
+    (entry.vibe?'<div class="entry-header"><span class="legend-dot ld-'+entry.vibe+'"></span><span class="entry-date">'+vLabel+'</span></div>':'')+
+    (entry.text?'<div class="entry-detail"><span class="entry-note">'+esc(entry.text)+'</span></div>':'')+
+    '</div>';
+}
+function openDaySummaryModal(dateISO) {
+  dateISO = dateISO || todayISO();
+  const climbs=state.climbs.map((c,i)=>({...c,_i:i})).filter(c=>c.date===dateISO);
+  const cardio=state.cardio.map((c,i)=>({...c,_i:i})).filter(c=>c.date===dateISO);
+  const strength=state.strength.map((s,i)=>({...s,_i:i})).filter(s=>s.date===dateISO);
+  const fuel=state.fuel.map((f,i)=>({...f,_i:i})).filter(f=>f.date===dateISO);
+  const entriesHtml = dayVibeEntryHtml(dateISO) +
+    climbs.map(climbEntryHtml).join('') +
+    cardio.map(cardioEntryHtml).join('') +
+    strength.map(strengthEntryHtml).join('') +
+    fuel.map(fuelEntryHtml).join('');
+  const d="'"+dateISO+"'";
   openModal(
-    '<div class="modal-header"><span class="modal-title">Log'+(dateISO?' \u2014 '+fmtDisplay(dateISO):'')+'</span>' +
-    '<button class="close-btn" onclick="closeModal()">&times;</button></div>' +
-    '<div class="form-row single"><div style="display:flex;flex-direction:column;gap:8px">' +
-    '<button class="btn btn-accent" onclick="openClimbModal(null,'+d+')">Climb session</button>' +
-    '<button class="btn btn-accent" onclick="openCardioModal(null,'+d+')">Cardio activity</button>' +
-    '<button class="btn btn-accent" onclick="openStrengthModal(null,'+d+')">Strength / Stretch</button>' +
-    '<button class="btn btn-accent" onclick="openDayModal('+d+')">Rest day / notes</button>' +
+    '<div class="modal-header"><span class="modal-title">'+fmtDisplay(dateISO)+'</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    (entriesHtml || '<div class="empty-state">Nothing logged yet</div>')+
+    '<div class="section-divider">Add</div>'+
+    '<div class="form-row single"><div style="display:flex;flex-direction:column;gap:8px">'+
+    '<button class="btn btn-accent" onclick="openClimbModal(null,'+d+')">Climb session</button>'+
+    '<button class="btn btn-accent" onclick="openCardioModal(null,'+d+')">Cardio activity</button>'+
+    '<button class="btn btn-accent" onclick="openStrengthModal(null,'+d+')">Strength / Stretch</button>'+
+    '<button class="btn btn-accent" onclick="openDayModal('+d+')">Vibe notes</button>'+
     '</div></div>');
 }
 
@@ -994,7 +1097,7 @@ function openCardioModal(idx, presetDate) {
     '<div class="form-row">'+
     '<div><label>Date</label><input type="date" id="m-date" value="'+dateVal+'"></div>'+
     '<div><label>Activity type</label><select id="m-acttype">'+
-    ['run','trail run','hike','scramble','bike'].map(t=>'<option value="'+t+'"'+(c.actType===t?' selected':'')+'>'+t+'</option>').join('')+
+    ['run','trail run','hike','scramble','bike','stationary bike'].map(t=>'<option value="'+t+'"'+(c.actType===t?' selected':'')+'>'+t+'</option>').join('')+
     '</select></div></div>'+
     '<div class="tag-row" style="margin-bottom:12px">'+
     '<button class="tag'+(c.alpine?' selected':'')+'" id="cardio-alpine-tag" onclick="toggleSoloTag(this)">Alpine</button>'+
@@ -1027,12 +1130,89 @@ function saveCardio(idx) {
 function deleteCardio(idx) { state.cardio.splice(idx,1); saveState(); closeModal(); renderCardio(); renderCalendar(); renderStats(); }
 
 /* STRENGTH / PT MODAL */
+function strengthAreaLabel(area) {
+  return area==='upper'?'Upper body':area==='lower'?'Lower body':area==='core'?'Core':area==='wrist'?'Finger strength':area;
+}
+function strengthKindLabel(kind) { return kind==='stretch'?'Stretch':'Strength'; }
+
+function exerciseOptionsHtml(area, selectedId) {
+  ensureExerciseLibrary();
+  const list=state.exerciseLibrary[area]||[];
+  if(!list.length) return '<option value="">No exercises yet -- add one under Manage exercises</option>';
+  return list.map(e=>'<option value="'+esc(e.id)+'"'+(e.id===selectedId?' selected':'')+'>'+esc(e.name)+'</option>').join('');
+}
+function findLibraryExercise(area, exId) {
+  ensureExerciseLibrary();
+  return (state.exerciseLibrary[area]||[]).find(e=>e.id===exId);
+}
+function exerciseRowHtml(area, ex) {
+  ex = ex || {};
+  const libEx = findLibraryExercise(area, ex.exId) || (state.exerciseLibrary[area]||[])[0] || {};
+  const exId = ex.exId || libEx.id || '';
+  const uni = ex.unilateral!==undefined ? !!ex.unilateral : !!libEx.unilateral;
+  const done = !!ex.done;
+  return '<div class="ex-row" data-uni="'+(uni?'1':'0')+'">'+
+    '<div class="ex-row-top">'+
+    '<input type="checkbox" class="ex-done" title="Mark done"'+(done?' checked':'')+'>'+
+    '<select class="ex-select">'+exerciseOptionsHtml(area, exId)+'</select>'+
+    '<button type="button" class="ex-uni-toggle'+(uni?' selected':'')+'" onclick="toggleExUnilateral(this)" title="Track left/right separately">L/R</button>'+
+    '<button class="remove-btn" onclick="this.closest(\'.ex-row\').remove()">&times;</button>'+
+    '</div>'+
+    '<div class="ex-row-fields" style="'+(uni?'display:none':'')+'">'+
+    '<input type="number" class="ex-sets" min="0" placeholder="Sets" value="'+esc(ex.sets||'')+'">'+
+    '<input type="number" class="ex-reps" min="0" placeholder="Reps" value="'+esc(ex.reps||'')+'">'+
+    '<input type="number" class="ex-weight" min="0" step="0.5" placeholder="Weight (lb)" value="'+esc(ex.weight||'')+'">'+
+    '</div>'+
+    '<div class="ex-row-sides" style="'+(uni?'':'display:none')+'">'+
+    '<div class="ex-side"><span class="ex-side-label">L</span>'+
+    '<input type="number" class="ex-setsL" min="0" placeholder="Sets" value="'+esc(ex.setsL||'')+'">'+
+    '<input type="number" class="ex-repsL" min="0" placeholder="Reps" value="'+esc(ex.repsL||'')+'">'+
+    '<input type="number" class="ex-weightL" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightL||'')+'">'+
+    '</div>'+
+    '<div class="ex-side"><span class="ex-side-label">R</span>'+
+    '<input type="number" class="ex-setsR" min="0" placeholder="Sets" value="'+esc(ex.setsR||'')+'">'+
+    '<input type="number" class="ex-repsR" min="0" placeholder="Reps" value="'+esc(ex.repsR||'')+'">'+
+    '<input type="number" class="ex-weightR" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightR||'')+'">'+
+    '</div>'+
+    '</div>'+
+    '<input type="text" class="ex-notes" placeholder="Notes for this exercise (optional)..." value="'+esc(ex.notes||'')+'">'+
+    '</div>';
+}
+function toggleExUnilateral(btn) {
+  const row=btn.closest('.ex-row');
+  const nowUni=!btn.classList.contains('selected');
+  btn.classList.toggle('selected', nowUni);
+  row.dataset.uni = nowUni?'1':'0';
+  row.querySelector('.ex-row-fields').style.display = nowUni?'none':'';
+  row.querySelector('.ex-row-sides').style.display = nowUni?'':'none';
+}
+function addExerciseRow() {
+  const area=getSelectedTag('strength-area-tags')||'upper';
+  const wrap=document.getElementById('strength-exercise-rows');
+  if(!wrap) return;
+  const holder=document.createElement('div');
+  holder.innerHTML=exerciseRowHtml(area, null);
+  wrap.appendChild(holder.firstElementChild);
+}
+function refreshExerciseRowsForArea() {
+  // Area changed -- each row's exercise dropdown needs to reflect the new
+  // area's library (exercises are area-specific), so re-populate options.
+  const area=getSelectedTag('strength-area-tags')||'upper';
+  document.querySelectorAll('#strength-exercise-rows .ex-row').forEach(row=>{
+    row.querySelector('.ex-select').innerHTML=exerciseOptionsHtml(area, null);
+  });
+}
 function openStrengthModal(idx, presetDate) {
   const editing=idx!==null&&idx!==undefined&&idx>=0;
   const s=editing?state.strength[idx]:{};
   const area=s.area||'upper';
   const kind=s.kind||'strength';
   const dateVal=s.date||presetDate||fmtISO(new Date());
+  ensureExerciseLibrary();
+  const exercises=(s.exercises&&s.exercises.length)?s.exercises:[];
+  const rowsHtml = exercises.length
+    ? exercises.map(ex=>exerciseRowHtml(area, ex)).join('')
+    : (kind==='strength' ? exerciseRowHtml(area, null) : '');
   openModal(
     '<div class="modal-header"><span class="modal-title">'+(editing?'Edit session':'Log a session')+'</span>'+
     '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
@@ -1046,11 +1226,17 @@ function openStrengthModal(idx, presetDate) {
     '<div id="strength-time-wrap" style="'+(kind==='stretch'?'display:none':'')+'"><label>Time (hrs)</label><input type="number" id="m-time" step="0.1" min="0" value="'+esc(s.time||'')+'" placeholder="0.0"></div></div>'+
     '<div style="margin-bottom:12px"><label style="margin-bottom:6px">Focus area</label>'+
     '<div class="tag-row" id="strength-area-tags">'+
-    '<button class="tag'+(area==='upper'?' selected':'')+'" data-val="upper" onclick="selTag(this,\'strength-area-tags\')">Upper body</button>'+
-    '<button class="tag'+(area==='lower'?' selected':'')+'" data-val="lower" onclick="selTag(this,\'strength-area-tags\')">Lower body</button>'+
-    '<button class="tag'+(area==='wrist'?' selected':'')+'" data-val="wrist" onclick="selTag(this,\'strength-area-tags\')">Wrist/fingers</button>'+
+    '<button class="tag'+(area==='upper'?' selected':'')+'" data-val="upper" onclick="selTag(this,\'strength-area-tags\');refreshExerciseRowsForArea()">Upper body</button>'+
+    '<button class="tag'+(area==='lower'?' selected':'')+'" data-val="lower" onclick="selTag(this,\'strength-area-tags\');refreshExerciseRowsForArea()">Lower body</button>'+
+    '<button class="tag'+(area==='core'?' selected':'')+'" data-val="core" onclick="selTag(this,\'strength-area-tags\');refreshExerciseRowsForArea()">Core</button>'+
+    '<button class="tag'+(area==='wrist'?' selected':'')+'" data-val="wrist" onclick="selTag(this,\'strength-area-tags\');refreshExerciseRowsForArea()">Finger strength</button>'+
     '</div></div>'+
-    '<div class="form-row single"><div><label>Notes</label><textarea id="m-notes" placeholder="Exercises, sets/reps, how it felt...">'+esc(s.notes||'')+'</textarea></div></div>'+
+    '<div id="strength-exercises-wrap" style="'+(kind==='stretch'?'display:none':'')+'">'+
+    '<div class="section-divider">Exercises</div>'+
+    '<div id="strength-exercise-rows">'+rowsHtml+'</div>'+
+    '<button type="button" class="add-row-btn" onclick="addExerciseRow()">+ Add exercise</button>'+
+    '</div>'+
+    '<div class="form-row single"><div><label>Session notes</label><textarea id="m-notes" placeholder="How the whole session felt overall...">'+esc(s.notes||'')+'</textarea></div></div>'+
     '<div class="modal-footer"><div class="modal-footer-left">'+
     (editing?'<button class="btn btn-sm btn-danger" onclick="deleteStrength('+idx+')">Delete</button>':'')+
     '</div><button class="btn btn-sm btn-accent" onclick="saveStrength('+(editing?idx:-1)+')">Save session</button></div>');
@@ -1059,6 +1245,40 @@ function refreshStrengthFields() {
   const kind=getSelectedTag('strength-kind-tags')||'strength';
   const timeWrap=document.getElementById('strength-time-wrap');
   if(timeWrap) timeWrap.style.display = kind==='stretch' ? 'none' : '';
+  const exWrap=document.getElementById('strength-exercises-wrap');
+  if(exWrap) exWrap.style.display = kind==='stretch' ? 'none' : '';
+  if(kind==='strength' && exWrap && !document.querySelector('#strength-exercise-rows .ex-row')) addExerciseRow();
+}
+function readExerciseRows() {
+  const area=getSelectedTag('strength-area-tags')||'upper';
+  const out=[];
+  document.querySelectorAll('#strength-exercise-rows .ex-row').forEach(row=>{
+    const exId=row.querySelector('.ex-select').value;
+    if(!exId) return;
+    const libEx=findLibraryExercise(area, exId);
+    const done=row.querySelector('.ex-done').checked;
+    const uni=row.dataset.uni==='1';
+    const notes=row.querySelector('.ex-notes').value;
+    const entry={exId, name: libEx?libEx.name:'', done, unilateral: uni, notes};
+    if(uni) {
+      entry.setsL=row.querySelector('.ex-setsL').value;
+      entry.repsL=row.querySelector('.ex-repsL').value;
+      entry.weightL=row.querySelector('.ex-weightL').value;
+      entry.setsR=row.querySelector('.ex-setsR').value;
+      entry.repsR=row.querySelector('.ex-repsR').value;
+      entry.weightR=row.querySelector('.ex-weightR').value;
+    } else {
+      entry.sets=row.querySelector('.ex-sets').value;
+      entry.reps=row.querySelector('.ex-reps').value;
+      entry.weight=row.querySelector('.ex-weight').value;
+    }
+    // Skip a row that's still fully blank (no data entered, not ticked) so an
+    // extra row left over from "+ Add exercise" doesn't get saved as noise.
+    const hasData = done || entry.sets || entry.reps || entry.weight ||
+      entry.setsL || entry.repsL || entry.weightL || entry.setsR || entry.repsR || entry.weightR || entry.notes;
+    if(hasData) out.push(entry);
+  });
+  return out;
 }
 function saveStrength(idx) {
   const date=document.getElementById('m-date').value;
@@ -1066,24 +1286,93 @@ function saveStrength(idx) {
   const time=kind==='stretch'?'':document.getElementById('m-time').value;
   const area=getSelectedTag('strength-area-tags')||'upper';
   const notes=document.getElementById('m-notes').value;
-  const entry={date,kind,area,time,notes};
+  const exercises=kind==='strength'?readExerciseRows():[];
+  const entry={date,kind,area,time,notes,exercises};
   if(idx>=0) state.strength[idx]=entry; else state.strength.push(entry);
   saveState(); closeModal(); renderStrength(); renderCalendar(); renderStats();
 }
 function deleteStrength(idx) { state.strength.splice(idx,1); saveState(); closeModal(); renderStrength(); renderCalendar(); renderStats(); }
-function strengthAreaLabel(area) { return area==='upper'?'Upper body':area==='lower'?'Lower body':area==='wrist'?'Wrist/fingers':area; }
-function strengthKindLabel(kind) { return kind==='stretch'?'Stretch':'Strength'; }
+
+/* Exercise library management (separate top-level modal so it never clobbers an in-progress session edit) */
+function openExerciseLibraryModal() {
+  ensureExerciseLibrary();
+  openModal(
+    '<div class="modal-header"><span class="modal-title">Manage exercises</span>'+
+    '<button class="close-btn" onclick="closeModal()">&times;</button></div>'+
+    '<div class="tag-row" id="exlib-area-tags">'+
+    STRENGTH_AREAS.map((a,i)=>'<button class="tag'+(i===0?' selected':'')+'" data-val="'+a+'" onclick="selTag(this,\'exlib-area-tags\');renderExerciseLibraryRows()">'+esc(strengthAreaLabel(a))+'</button>').join('')+
+    '</div>'+
+    '<div id="exlib-rows"></div>'+
+    '<button type="button" class="add-row-btn" onclick="addExerciseLibraryRow()">+ Add exercise</button>'+
+    '<div class="modal-footer"><div></div><button class="btn btn-sm btn-accent" onclick="closeModal()">Done</button></div>');
+  renderExerciseLibraryRows();
+}
+function renderExerciseLibraryRows() {
+  const area=getSelectedTag('exlib-area-tags')||'upper';
+  const wrap=document.getElementById('exlib-rows');
+  if(!wrap) return;
+  const list=state.exerciseLibrary[area]||[];
+  wrap.innerHTML = list.length ? list.map((e,i)=>
+    '<div class="subrow exlib-row">'+
+    '<input type="text" value="'+esc(e.name)+'" placeholder="Exercise name" onchange="renameExercise(\''+area+'\','+i+',this.value)">'+
+    '<button class="remove-btn" onclick="removeExercise(\''+area+'\','+i+')" title="Remove">&times;</button>'+
+    '</div>').join('') : '<div class="empty-state" style="padding:8px 0">No exercises yet -- add one below</div>';
+}
+function renameExercise(area, i, val) {
+  if(state.exerciseLibrary[area] && state.exerciseLibrary[area][i]) {
+    state.exerciseLibrary[area][i].name=val;
+    saveState();
+  }
+}
+function removeExercise(area, i) {
+  if(!state.exerciseLibrary[area]) return;
+  state.exerciseLibrary[area].splice(i,1);
+  saveState();
+  renderExerciseLibraryRows();
+}
+function addExerciseLibraryRow() {
+  const area=getSelectedTag('exlib-area-tags')||'upper';
+  state.exerciseLibrary[area]=state.exerciseLibrary[area]||[];
+  state.exerciseLibrary[area].push({id:genExId(), name:'', unilateral:false});
+  saveState();
+  renderExerciseLibraryRows();
+  const inputs=document.querySelectorAll('#exlib-rows input[type="text"]');
+  if(inputs.length) inputs[inputs.length-1].focus();
+}
+
+function exerciseSummaryLine(ex) {
+  const mark = ex.done ? '\u2713 ' : '\u2013 ';
+  let detail='';
+  if(ex.unilateral) {
+    const l=(ex.setsL||ex.repsL||ex.weightL) ? (ex.setsL||'?')+'x'+(ex.repsL||'?')+(ex.weightL?' @ '+ex.weightL+'lb':'') : '';
+    const r=(ex.setsR||ex.repsR||ex.weightR) ? (ex.setsR||'?')+'x'+(ex.repsR||'?')+(ex.weightR?' @ '+ex.weightR+'lb':'') : '';
+    detail=[l?('L '+l):'', r?('R '+r):''].filter(Boolean).join('  \u00b7  ');
+  } else {
+    const parts=[];
+    if(ex.sets||ex.reps) parts.push((ex.sets||'?')+'x'+(ex.reps||'?'));
+    if(ex.weight) parts.push(ex.weight+' lb');
+    detail=parts.join(' @ ');
+  }
+  return '<div class="ex-summary-line'+(ex.done?' ex-done-line':'')+'">'+mark+'<strong>'+esc(ex.name)+'</strong>'+
+    (detail?' &mdash; '+esc(detail):'')+
+    (ex.notes?' <span class="ex-summary-note">('+esc(ex.notes)+')</span>':'')+'</div>';
+}
+function strengthEntryHtml(s) {
+  const exHtml=(s.exercises&&s.exercises.length) ? '<div class="ex-summary">'+s.exercises.map(exerciseSummaryLine).join('')+'</div>' : '';
+  return '<div class="log-entry" onclick="openStrengthModal('+s._i+')">'+
+    '<div class="entry-header"><span class="pill pill-strength">'+esc(strengthKindLabel(s.kind))+'</span>'+
+    '<span class="pill pill-strength-area">'+esc(strengthAreaLabel(s.area))+'</span>'+
+    '<span class="entry-date">'+fmtDisplay(s.date)+'</span>'+
+    (s.time?'<span class="entry-pts">'+s.time+' hrs</span>':'')+'</div>'+
+    exHtml+
+    (s.notes?'<div class="entry-detail"><span class="entry-note">'+esc(s.notes)+'</span></div>':'')+'</div>';
+}
 function renderStrength() {
   const sorted=state.strength.map((s,i)=>({...s,_i:i})).sort((a,b)=>b.date.localeCompare(a.date));
   const el=document.getElementById('strength-list');
   if(!el) return;
   if(!sorted.length){el.innerHTML='<div class="empty-state">No strength/stretch sessions logged yet</div>';return;}
-  el.innerHTML=sorted.map(s=>'<div class="log-entry" onclick="openStrengthModal('+s._i+')">'+
-    '<div class="entry-header"><span class="pill pill-strength">'+esc(strengthKindLabel(s.kind))+'</span>'+
-    '<span class="pill pill-strength-area">'+esc(strengthAreaLabel(s.area))+'</span>'+
-    '<span class="entry-date">'+fmtDisplay(s.date)+'</span>'+
-    (s.time?'<span class="entry-pts">'+s.time+' hrs</span>':'')+'</div>'+
-    (s.notes?'<div class="entry-detail"><span class="entry-note">'+esc(s.notes)+'</span></div>':'')+'</div>').join('');
+  el.innerHTML=sorted.map(strengthEntryHtml).join('');
 }
 
 /* FUEL MODAL */
@@ -1207,6 +1496,8 @@ async function restoreFromGist() {
     state.strength = mergeArr(state.strength, strength);
     state.goals = mergeArr(state.goals, goals);
     state.cycles = mergeArr(state.cycles, cycles);
+    ensureExerciseLibrary();
+    state.exerciseLibrary = mergeExerciseLibrary(state.exerciseLibrary, imp.exerciseLibrary);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
     renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
@@ -1291,6 +1582,8 @@ function importData(event) {
       state.strength=mergeArr(state.strength,strength);
       state.goals=mergeArr(state.goals,goals);
       state.cycles=mergeArr(state.cycles,cycles);
+      ensureExerciseLibrary();
+      state.exerciseLibrary=mergeExerciseLibrary(state.exerciseLibrary, imp.exerciseLibrary);
       saveState();
       renderCalendar(); renderClimbs(); renderCardio(); renderStrength(); renderFuel(); renderStats();
       renderGoals(); renderCycles(); renderYearly(); renderPlanMonth(); renderPlanWeek();
@@ -1336,6 +1629,7 @@ async function bootstrapSeedData() {
         strength: mergeArr(cur.strength || [], seed.strength || []),
         goals: mergeArr(cur.goals || [], seed.goals || []),
         cycles: mergeArr(cur.cycles || [], seed.cycles || []),
+        exerciseLibrary: mergeExerciseLibrary(cur.exerciseLibrary || {}, seed.exerciseLibrary || {}),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }

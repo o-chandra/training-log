@@ -18,9 +18,6 @@
       <span id="gist-sync-status" class="sync-status"></span>
       <button class="btn btn-sm" onclick="openBgPickerModal()">Background</button>
       <button class="btn btn-sm" onclick="openGistSettingsModal()">Cloud backup</button>
-      <button class="btn btn-sm" onclick="exportData()">Export backup</button>
-      <label class="import-label" for="import-input">Import backup</label>
-      <input type="file" id="import-input" accept=".json" onchange="importData(event)">
     </div>
   </div>
 
@@ -55,7 +52,7 @@
         <button class="btn-toggle active" id="toggle-week" onclick="setView('week')">Week</button>
         <button class="btn-toggle" id="toggle-month" onclick="setView('month')">Month</button>
       </div>
-      <button class="btn btn-sm btn-accent" onclick="openLogChoiceModal()" style="margin-left:auto">+ Log day</button>
+      <button class="btn btn-sm btn-accent" onclick="openDaySummaryModal()" style="margin-left:auto">+ Log day</button>
     </div>
     <div class="legend">
       <span style="font-size:12px;color:var(--text);font-weight:600">Vibe:</span>
@@ -95,6 +92,7 @@
 
   <div id="strength" class="section">
     <div class="filter-row">
+      <button class="btn btn-sm" onclick="openExerciseLibraryModal()">Manage exercises</button>
       <button class="btn btn-sm btn-accent" onclick="openStrengthModal(null)" style="margin-left:auto">+ Log session</button>
     </div>
     <div id="strength-list"></div>
