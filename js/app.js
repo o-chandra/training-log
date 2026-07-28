@@ -1149,34 +1149,65 @@ function exerciseRowHtml(area, ex) {
   ex = ex || {};
   const libEx = findLibraryExercise(area, ex.exId) || (state.exerciseLibrary[area]||[])[0] || {};
   const exId = ex.exId || libEx.id || '';
-  const uni = ex.unilateral!==undefined ? !!ex.unilateral : !!libEx.unilateral;
-  const done = !!ex.done;
-  return '<div class="ex-row" data-uni="'+(uni?'1':'0')+'">'+
+  const isWrist = area==='wrist';
+  const uni = !isWrist && (ex.unilateral!==undefined ? !!ex.unilateral : !!libEx.unilateral);
+  const status = ex.status || (ex.done ? 'done' : '');
+  const statusBtn = (val, label, icon) => '<button type="button" class="ex-status-btn ex-status-'+val+(status===val?' selected':'')+'" data-status="'+val+'" onclick="setExStatus(this)" title="'+label+'">'+icon+'</button>';
+  const statusGroupHtml = '<div class="ex-status-group">'+
+    statusBtn('done','Done','\u2713')+
+    statusBtn('not-done','Not done','\u2715')+
+    statusBtn('transferred','Transferred to a different day/workout','\u21b7')+
+    '</div>';
+  const fieldsHtml = isWrist
+    ? '<div class="ex-row-fields wrist-fields">'+
+      '<input type="number" class="ex-sets" min="0" placeholder="Sets" value="'+esc(ex.sets||'')+'">'+
+      '<input type="number" class="ex-time" min="0" step="0.5" placeholder="Time (s)" value="'+esc(ex.time||'')+'">'+
+      '<input type="number" class="ex-addedweight" min="0" step="0.5" placeholder="Added wt (lb)" value="'+esc(ex.addedWeight||'')+'">'+
+      '<select class="ex-type">'+
+      '<option value="repeater"'+(ex.fingerType==='repeater'||!ex.fingerType?' selected':'')+'>Repeater</option>'+
+      '<option value="maxhang"'+(ex.fingerType==='maxhang'?' selected':'')+'>Max hang</option>'+
+      '</select>'+
+      '</div>'
+    : '<div class="ex-row-fields" style="'+(uni?'display:none':'')+'">'+
+      '<input type="number" class="ex-sets" min="0" placeholder="Sets" value="'+esc(ex.sets||'')+'">'+
+      '<input type="number" class="ex-reps" min="0" placeholder="Reps" value="'+esc(ex.reps||'')+'">'+
+      '<input type="number" class="ex-weight" min="0" step="0.5" placeholder="Weight (lb)" value="'+esc(ex.weight||'')+'">'+
+      '</div>'+
+      '<div class="ex-row-sides" style="'+(uni?'':'display:none')+'">'+
+      '<div class="ex-side"><span class="ex-side-label">L</span>'+
+      '<input type="number" class="ex-setsL" min="0" placeholder="Sets" value="'+esc(ex.setsL||'')+'">'+
+      '<input type="number" class="ex-repsL" min="0" placeholder="Reps" value="'+esc(ex.repsL||'')+'">'+
+      '<input type="number" class="ex-weightL" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightL||'')+'">'+
+      '</div>'+
+      '<div class="ex-side"><span class="ex-side-label">R</span>'+
+      '<input type="number" class="ex-setsR" min="0" placeholder="Sets" value="'+esc(ex.setsR||'')+'">'+
+      '<input type="number" class="ex-repsR" min="0" placeholder="Reps" value="'+esc(ex.repsR||'')+'">'+
+      '<input type="number" class="ex-weightR" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightR||'')+'">'+
+      '</div>'+
+      '</div>';
+  return '<div class="ex-row" data-uni="'+(uni?'1':'0')+'" data-area="'+esc(area)+'">'+
     '<div class="ex-row-top">'+
-    '<input type="checkbox" class="ex-done" title="Mark done"'+(done?' checked':'')+'>'+
+    statusGroupHtml+
     '<select class="ex-select">'+exerciseOptionsHtml(area, exId)+'</select>'+
-    '<button type="button" class="ex-uni-toggle'+(uni?' selected':'')+'" onclick="toggleExUnilateral(this)" title="Track left/right separately">L/R</button>'+
+    (isWrist ? '' : '<button type="button" class="ex-uni-toggle'+(uni?' selected':'')+'" onclick="toggleExUnilateral(this)" title="Track left/right separately">L/R</button>')+
     '<button class="remove-btn" onclick="this.closest(\'.ex-row\').remove()">&times;</button>'+
     '</div>'+
-    '<div class="ex-row-fields" style="'+(uni?'display:none':'')+'">'+
-    '<input type="number" class="ex-sets" min="0" placeholder="Sets" value="'+esc(ex.sets||'')+'">'+
-    '<input type="number" class="ex-reps" min="0" placeholder="Reps" value="'+esc(ex.reps||'')+'">'+
-    '<input type="number" class="ex-weight" min="0" step="0.5" placeholder="Weight (lb)" value="'+esc(ex.weight||'')+'">'+
-    '</div>'+
-    '<div class="ex-row-sides" style="'+(uni?'':'display:none')+'">'+
-    '<div class="ex-side"><span class="ex-side-label">L</span>'+
-    '<input type="number" class="ex-setsL" min="0" placeholder="Sets" value="'+esc(ex.setsL||'')+'">'+
-    '<input type="number" class="ex-repsL" min="0" placeholder="Reps" value="'+esc(ex.repsL||'')+'">'+
-    '<input type="number" class="ex-weightL" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightL||'')+'">'+
-    '</div>'+
-    '<div class="ex-side"><span class="ex-side-label">R</span>'+
-    '<input type="number" class="ex-setsR" min="0" placeholder="Sets" value="'+esc(ex.setsR||'')+'">'+
-    '<input type="number" class="ex-repsR" min="0" placeholder="Reps" value="'+esc(ex.repsR||'')+'">'+
-    '<input type="number" class="ex-weightR" min="0" step="0.5" placeholder="Wt" value="'+esc(ex.weightR||'')+'">'+
-    '</div>'+
-    '</div>'+
-    '<input type="text" class="ex-notes" placeholder="Notes for this exercise (optional)..." value="'+esc(ex.notes||'')+'">'+
+    fieldsHtml+
+    '<input type="text" class="ex-notes" placeholder="'+(status==='transferred'?'Where/when did it move to? (optional)':status==='not-done'?'Why not done? (optional)':'Notes for this exercise (optional)...')+'" value="'+esc(ex.notes||'')+'">'+
     '</div>';
+}
+function setExStatus(btn) {
+  const group=btn.closest('.ex-status-group');
+  const wasSelected=btn.classList.contains('selected');
+  group.querySelectorAll('.ex-status-btn').forEach(b=>b.classList.remove('selected'));
+  if(!wasSelected) btn.classList.add('selected');
+  const status=wasSelected?'':btn.dataset.status;
+  const notesInput=btn.closest('.ex-row').querySelector('.ex-notes');
+  if(notesInput && !notesInput.value) {
+    notesInput.placeholder = status==='transferred' ? 'Where/when did it move to? (optional)'
+      : status==='not-done' ? 'Why not done? (optional)'
+      : 'Notes for this exercise (optional)...';
+  }
 }
 function toggleExUnilateral(btn) {
   const row=btn.closest('.ex-row');
@@ -1256,11 +1287,17 @@ function readExerciseRows() {
     const exId=row.querySelector('.ex-select').value;
     if(!exId) return;
     const libEx=findLibraryExercise(area, exId);
-    const done=row.querySelector('.ex-done').checked;
+    const statusBtn=row.querySelector('.ex-status-btn.selected');
+    const status=statusBtn?statusBtn.dataset.status:'';
     const uni=row.dataset.uni==='1';
     const notes=row.querySelector('.ex-notes').value;
-    const entry={exId, name: libEx?libEx.name:'', done, unilateral: uni, notes};
-    if(uni) {
+    const entry={exId, name: libEx?libEx.name:'', status, done: status==='done', unilateral: uni, notes};
+    if(area==='wrist') {
+      entry.sets=row.querySelector('.ex-sets').value;
+      entry.time=row.querySelector('.ex-time').value;
+      entry.addedWeight=row.querySelector('.ex-addedweight').value;
+      entry.fingerType=row.querySelector('.ex-type').value;
+    } else if(uni) {
       entry.setsL=row.querySelector('.ex-setsL').value;
       entry.repsL=row.querySelector('.ex-repsL').value;
       entry.weightL=row.querySelector('.ex-weightL').value;
@@ -1274,7 +1311,7 @@ function readExerciseRows() {
     }
     // Skip a row that's still fully blank (no data entered, not ticked) so an
     // extra row left over from "+ Add exercise" doesn't get saved as noise.
-    const hasData = done || entry.sets || entry.reps || entry.weight ||
+    const hasData = status || entry.sets || entry.reps || entry.weight || entry.time || entry.addedWeight ||
       entry.setsL || entry.repsL || entry.weightL || entry.setsR || entry.repsR || entry.weightR || entry.notes;
     if(hasData) out.push(entry);
   });
@@ -1340,10 +1377,19 @@ function addExerciseLibraryRow() {
   if(inputs.length) inputs[inputs.length-1].focus();
 }
 
-function exerciseSummaryLine(ex) {
-  const mark = ex.done ? '\u2713 ' : '\u2013 ';
+function exerciseSummaryLine(ex, area) {
+  const status = ex.status || (ex.done ? 'done' : '');
+  const mark = status==='done' ? '\u2713 ' : status==='not-done' ? '\u2715 ' : status==='transferred' ? '\u21b7 ' : '\u2013 ';
+  const lineClass = status==='done' ? ' ex-done-line' : status==='not-done' ? ' ex-status-line-not-done' : status==='transferred' ? ' ex-status-line-transferred' : '';
   let detail='';
-  if(ex.unilateral) {
+  if(area==='wrist') {
+    const parts=[];
+    if(ex.fingerType) parts.push(ex.fingerType==='maxhang'?'Max hang':'Repeater');
+    if(ex.sets) parts.push(ex.sets+' sets');
+    if(ex.time) parts.push(ex.time+'s');
+    if(ex.addedWeight) parts.push('+'+ex.addedWeight+' lb');
+    detail=parts.join(' \u00b7 ');
+  } else if(ex.unilateral) {
     const l=(ex.setsL||ex.repsL||ex.weightL) ? (ex.setsL||'?')+'x'+(ex.repsL||'?')+(ex.weightL?' @ '+ex.weightL+'lb':'') : '';
     const r=(ex.setsR||ex.repsR||ex.weightR) ? (ex.setsR||'?')+'x'+(ex.repsR||'?')+(ex.weightR?' @ '+ex.weightR+'lb':'') : '';
     detail=[l?('L '+l):'', r?('R '+r):''].filter(Boolean).join('  \u00b7  ');
@@ -1353,12 +1399,12 @@ function exerciseSummaryLine(ex) {
     if(ex.weight) parts.push(ex.weight+' lb');
     detail=parts.join(' @ ');
   }
-  return '<div class="ex-summary-line'+(ex.done?' ex-done-line':'')+'">'+mark+'<strong>'+esc(ex.name)+'</strong>'+
+  return '<div class="ex-summary-line'+lineClass+'">'+mark+'<strong>'+esc(ex.name)+'</strong>'+
     (detail?' &mdash; '+esc(detail):'')+
     (ex.notes?' <span class="ex-summary-note">('+esc(ex.notes)+')</span>':'')+'</div>';
 }
 function strengthEntryHtml(s) {
-  const exHtml=(s.exercises&&s.exercises.length) ? '<div class="ex-summary">'+s.exercises.map(exerciseSummaryLine).join('')+'</div>' : '';
+  const exHtml=(s.exercises&&s.exercises.length) ? '<div class="ex-summary">'+s.exercises.map(ex=>exerciseSummaryLine(ex, s.area)).join('')+'</div>' : '';
   return '<div class="log-entry" onclick="openStrengthModal('+s._i+')">'+
     '<div class="entry-header"><span class="pill pill-strength">'+esc(strengthKindLabel(s.kind))+'</span>'+
     '<span class="pill pill-strength-area">'+esc(strengthAreaLabel(s.area))+'</span>'+
