@@ -1226,11 +1226,18 @@ function addExerciseRow() {
   wrap.appendChild(holder.firstElementChild);
 }
 function refreshExerciseRowsForArea() {
-  // Area changed -- each row's exercise dropdown needs to reflect the new
-  // area's library (exercises are area-specific), so re-populate options.
+  // Area changed -- each row's field layout is area-specific (finger strength
+  // uses sets/time/added-weight/type instead of sets/reps/weight, and has no
+  // L/R toggle), so the whole row has to be rebuilt, not just the exercise
+  // dropdown options. Old typed values don't carry over since the fields
+  // mean different things in the new area.
   const area=getSelectedTag('strength-area-tags')||'upper';
-  document.querySelectorAll('#strength-exercise-rows .ex-row').forEach(row=>{
-    row.querySelector('.ex-select').innerHTML=exerciseOptionsHtml(area, null);
+  const wrap=document.getElementById('strength-exercise-rows');
+  if(!wrap) return;
+  wrap.querySelectorAll('.ex-row').forEach(row=>{
+    const holder=document.createElement('div');
+    holder.innerHTML=exerciseRowHtml(area, null);
+    wrap.replaceChild(holder.firstElementChild, row);
   });
 }
 function openStrengthModal(idx, presetDate) {
